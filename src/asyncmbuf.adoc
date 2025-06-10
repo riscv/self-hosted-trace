@@ -96,7 +96,7 @@ Execution of the enabling or disabling steps described above in a different orde
 
 === Memory Semantics
 
-Like other stores, the ordering and cache semantics of hardware AMB writes are dictated by PMAs and/or page-based memory types (Svpbmt).  However, hardware writes of asynchronous data are not ordered with respect to explicit memory operations, including fences.  To effect an asynchronous data fence software should follow the AMB disable steps described in <<ambendis>>. 
+Like other stores, the ordering and cache semantics of hardware AMB writes are dictated by PMAs and/or page-based memory types (Svpbmt).  However, hardware writes of asynchronous data are not ordered with respect to explicit memory operations, including FENCE instructions.  To effect an asynchronous data fence software should follow the AMB disable steps described in <<ambendis>>. 
 
 [NOTE]
 ====

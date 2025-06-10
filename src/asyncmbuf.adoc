@@ -99,7 +99,7 @@ Any dropping of asynchronous data must happen at the source, to ensure that the 
 
 [NOTE]
 ====
-_To avoid scenarios where the source is flushed but the AMB is not able to sink all asynchrnonous data bytes, the implementation should backpressure the source before the remaining translated AMB space is less than the size of the internal buffer.  Otherwise there is a risk that a translation fault is needed to in order to sink buffered data, and the LAMBI trap could lead to the source being disabled (e.g., due to context switch) before the fault is handled.  This would result in unrecoverable data loss._
+_To avoid scenarios where the source is flushed but the AMB is not able to sink all asynchrononous data bytes, the implementation should backpressure the source before the remaining translated AMB space is less than the size of the internal buffer.  Otherwise there is a risk that a translation fault is needed to in order to sink buffered data, and the LAMBI trap could lead to the source being disabled (e.g., due to context switch) before the fault is handled.  This would result in unrecoverable data loss._
 ====
 
 [[ambaddr]]
@@ -121,6 +121,8 @@ _Using a fixed effective privilege mode for asynchronous data writes, rather tha
 
 _This mechanism is also motivated by an expectation that implementations may buffer asynchronous data internally before it is emitted to the AMB, in order to avoid data loss during asynchronous data bursts.  This translation approach avoids the need to delay traps and trap returns by requiring internal buffers to be flushed before the current privilege mode changes.  Asynchronous data can continue to be emitted with the same privilege and translation despite changes to the current privilege mode._
 ====
+
+WARNING: _This does not cleanly support a nested hypervisor tracing/monitoring a true guest.  In such a usage, the guest trace would ideally use the nested hypervisor's `vsatp`/`hgatp` to translate AMB addresses.  In the TG we discussed adding `tatp` and `hgtatp` registers that are used just for translation of AMB addresses, and could be assigned the values of the nested hypervisor's `vsatp`/`hgatp` in this usage.  But this feels like overkill to support this usage.  A root hypervisor can support this usage using its own `satp` to translate AMB addresses during guest execution, then map those physical AMB pages to the nested hypervisor's AMB range via `hgatp`._
 
 The process of translating AMB write addresses can result in translation faults.  A page fault incurred during first-level page lookup, based on `satp` when the effective privilege mode is S-mode or `vsatp` when the effective privilege mode is VS-mode, raises a LAMBI interrupt with a cause of translation fault (`sambcs`.TF=1), and the buffer offset of the offending page indicated in `sambcs`.TFPTR.
 

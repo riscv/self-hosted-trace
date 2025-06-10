@@ -12,14 +12,15 @@ WARNING: _There is still an open question whether AMB should simply require pinn
 
 ==== Supervisor Asynchronous Memory Buffer Configuration and Status Register (`sambcs`)
 
-The `sambcs` register is a 64-bit WARL register that provides configuration and status fields for the Asynchronous Memory Buffer.  
+The `sambcs` register is a 64-bit WARL register that provides configuration and status fields for the asynchronous memory buffer.  
 
 .Supervisor Asynchronous Memory Buffer Configuration and Status Register (`sambcs`)
 [wavedrom, , svg]
 ....
 {reg: [
+    {bits: 1, name: 'EN'},
     {bits: 5, name: 'SIZE'},
-    {bits: 4, name: 'WARL', type: 1},
+    {bits: 3, name: 'WARL', type: 1},
     {bits: 2, name: 'BMITH'},
     {bits: 1, name: 'BMIEN'},
     {bits: 20, name: 'TFPTR'},
@@ -32,15 +33,15 @@ The `sambcs` register is a 64-bit WARL register that provides configuration and 
 ], config:{lanes: 4, hspace:1024}}
 ....
 
+When EN=1, the AMB is enabled to receive asynchronous data from source(s).  Once enabled, the AMB may translate buffer page(s), which can result in translation faults and/or guest-page faults, and cache those translations.  See <<ambaddr>> for address translation details, and see <<ambendis>> for details on enabling and disabling AMB.
+
 The buffer size is 2^SIZE+12^, supporting sizes from 4 KB (SIZE=0) to 4 GB (SIZE=20).  SIZE values 21..31 are reserved.  An AMB instance may support only a subset of SIZE values.  The maximum supported size can be discovered by writing all 1s to SIZE and reading back the resulting value.  All sizes between the minimum (4 KB) and the maximum supported size are supported.
 
 WARNING: _The largest AUX buffer size allowed by Linux perf for self-hosted trace from other architectures is 4 MiB, but those require pinned memory._
 
 The BMIEN bit enables buffer management interrupts.  When BMIEN=1, a local asynchronous memory buffer interrupt (LAMBI) is pended when hardware increment of `sambaddr` causes the two most significant bits of the the write pointer offset portion to transition to match BMITH.  For example, if BMIEN=1 and BMITH=2, a LAMBI will be pended when the buffer is half full.
 
-WARNING: _would software ever just use AMB translation faults to track buffer progress, avoiding the need for BMIs?_
-
-The TF and BMI bits report the source of a pended LAMBI.  When BMI=1, a buffer management interrupt was pended.  When TF=1, a buffer translation fault occurred. See <<ambaddr>> for address translation details.
+The TF and BMI bits report the source of a pended LAMBI.  When BMI=1, a buffer management interrupt was pended.  When TF=1, a buffer translation fault occurred. See <<ambaddr>> for address translation details.  Software should clear the TF and BMI bits once the associated LAMBI has been serviced.
 
 NOTE: _Unlike explicit stores, asynchronous memory buffer writes do not raise "Store/AMO Page Fault" exceptions as a result of translation faults.  By instead pending a LAMBI with TF=1, an AMB translation fault can remain pending if it cannot be handled in the current privilege mode._
 
@@ -50,19 +51,19 @@ FaultAddress = (`sambaddr` & (2^`sambcs`.SIZE+12^ - 1)) | (`sambcs`.TFPTR<<12)
 
 NOTE: _Because implementations may pre-translate AMB pages (see <<ambaddr>>), the address in `sambaddr` may not reflect the page that incurred the AMB translation fault.  The TFPTR provides a means to report a fault to a different page._
 
-NOTE: _When an AMB page lookup raises a translation fault, the lookup may be suspended.  If trace is then disabled, the lookup should be resumed when trace is re-enabled.  Otherwise the lookup should resume once the TF bit is cleared by software, indicating that the page is now available._
+NOTE: _When an AMB page lookup raises a translation fault, the lookup may be suspended.  If AMB is then disabled, the lookup should be resumed when AMB is re-enabled.  Otherwise the lookup should resume once the TF bit is cleared by software, indicating that the page is now available._
 
 WARNING: _Extensions that use AMB probably want to include a bit that inhibits asynchronous data generation during LAMBI handling.  Inhibit for any interrupt to mode __x__ when __x__cause.LAMBI=1?_
 
-The EMPTY bit is a read-only indication to software that all internally buffered asynchronous data has been flushed and should be visible to software reads.  Disabling the asynchronous data source effects a flush of any internally buffered data, such that EMPTY=1 follows  thereafter.
+The EMPTY bit is a read-only indication to software that all internally buffered asynchronous data has been flushed and is visible to software reads.
+
+NOTE: _EMPTY should factor in any empty indication from the associated data source(s), such that EMPTY is set only when all enabled data sources are empty._
 
 The WRAP bit indicates that the buffer has wrapped at least once, and hence the data above the write pointer is valid.
 
 The TRV bit is a read-only indication to software that the hardware has successfully translated the buffer current page, and optionally one or more following pages.  
 
-NOTE: _Software may opt to poll on this bit after enabling the asynchronous data source, in order to minimize the risk of asynchronous data associated with the workload being dropped while awaiting resolution of the translation(s)._
-
-It is strongly recommended that software only write to `sambcs` while any associated asynchronous data sources are disabled.  This avoids race conditions between software writes and hardware updates of status fields.
+It is strongly recommended that software only write to `sambcs` while any associated asynchronous data sources are disabled and `sambcs`.EMPTY=1.  This avoids race conditions between software writes and hardware updates of status fields.
 
 ==== Supervisor Asynchronous Memory Buffer Address Register (`sambaddr`)
 
@@ -74,6 +75,8 @@ Some instantiations of AMB may support only buffer writes that are aligned to a 
 
 `sambaddr` need not be capable of holding an invalid address.
 
+It is strongly recommended that software not write to `sambaddr` while AMB is enabled (`sambcs`.EN=1) or not empty (`sambcs`.EMPTY=0).  Data loss may result.
+
 ==== Interrupt Registers
 
 WARNING: _This section gets integrated into 3.1.9 and others_
@@ -84,9 +87,18 @@ For implementations that support Smaia, the LAMBI bit in `mvip` and `mvien` is w
 
 The priority of LAMBIs lies immediately below that of local counter overflow interrupts (LCOFIs).
 
-=== AMB Memory Semantics
+[[ambendis]]
+=== Enabling and Disabling
 
-Like other stores, the ordering and cache semantics of hardware AMB writes are dictated by PMAs and/or page-based memory types (Svpbmt).  However, hardware writes of asynchronous data are not ordered with respect to explicit memory operations, including fences.  To effect an asynchronous data fence software should disable the asynchronous data source, and wait for `sambcs`.EMPTY=1.
+When enabling asynchronous data collection, software should first initialize `sambaddr`, then configure and enable AMB by writing `sambcs`.  Once AMB is enabled (`sambcs`.EN=1), translation of the initial AMB page(s) will commence.  It is recommended that software wait until `sambcs`.TRV=1 before enabling enabling the asynchronous data source(s), to avoid loss of data while waiting for this translation process.
+
+When disabling asynchronous data collection, software should first disable asynchronous data source(s), which will initiate a flush of any internally buffered data.  Software should then wait until AMB is empty (`sambcs`.EMTPY=1).  After this AMB can be disabled by clearing `sambcs`.EN.
+
+Execution of the enabling or disabling steps described above in a different order risks asynchronous data loss.
+
+=== Memory Semantics
+
+Like other stores, the ordering and cache semantics of hardware AMB writes are dictated by PMAs and/or page-based memory types (Svpbmt).  However, hardware writes of asynchronous data are not ordered with respect to explicit memory operations, including fences.  To effect an asynchronous data fence software should follow the AMB disable steps described in <<ambendis>>. 
 
 [NOTE]
 ====
@@ -103,7 +115,7 @@ _To avoid scenarios where the source is flushed but the AMB is not able to sink 
 ====
 
 [[ambaddr]]
-=== AMB Privilege and Address Translation
+=== Privilege and Address Translation
 
 The effective privilege mode of AMB writes is selected by bits associated with each AMB instance in `menvcfg` and, if the H extension is implemented, `henvcfg`.  For the AMB associated with self-hosted trace (STRC), the full set of configuration options is illustrated below.
 
@@ -130,8 +142,7 @@ A page fault incurred during the second-level, or G-stage, page lookup raises a 
 
 NOTE: _If the asynchronous data source is backpressured while waiting for the current AMB page to be translated, there is a risk of data loss due to internal buffer overflow.  One method to avoid such loss is to pre-translate the next AMB page(s), ensuring that the translation(s) are cached before the page(s) need to be written.  A simple implementation would cache translations for the current and next AMB page.  When page X is filled, writes transition to (already translated) page X+1, and translation begins for page X+2.  It is recommended that the number of pages pre-translated is sufficient to match or exceed the size of any internal buffering, to ensure that the internal buffer can always be flushed without requiring a page walk or translation fault._
 
-Cached AMB page translations can be flushed by SFENCE and HFENCE instructions, globally or per ASID/VMID, just as other translations are.  Cached AMB page translations are also flushed when the asynchronous data source is disabled.
+Cached AMB page translations can be flushed by SFENCE and HFENCE instructions, globally or per ASID/VMID, just as other translations are.  Such fence operations may result in asynchronous data loss if performed while AMB is enabled and not empty.  Cached AMB page translations are also flushed when `sambcs`.EN is cleared.
 
-NOTE: _Depending on the AMB buffer size and data rate, AMB writes can touch many pages in a short amount of time.  However, AMB uses page translations efficiently, writing exclusively to a single page until it is full, then moving to the next and writing exclusively to it.  Rather than allowing AMB writes to displace explicit memory access translations from the primary TLB, it may be more efficient to store cached AMB translations in a very small dedicated AMB TLB.  Two entries (current page and next page) are probably sufficient for most implementations, though more may be warranted if the implementation pre-translates more than one page ahead._
+NOTE: _Depending on the AMB size and the asynchronous data rate, AMB writes can touch many pages in a short amount of time.  However, AMB uses page translations efficiently, writing exclusively to a single page until it is full, then moving to the next and writing exclusively to it.  Rather than allowing AMB writes to displace explicit memory access translations from the primary TLB, it may be more efficient to store cached AMB translations in a very small dedicated AMB TLB.  Two entries (current page and next page) will be sufficient for most implementations, though more may be warranted if the implementation pre-translates more than one page ahead._
 
-WARNING: _should AMB have its own enable bit?  such that translations are fetched when it's enabled, and flushed when it's disabled, regardless of data source enabling?  Then SW could enable the buffer, and only enable the source once TRV=1..._

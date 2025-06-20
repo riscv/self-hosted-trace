@@ -4,7 +4,7 @@ An asynchronous memory buffer (AMB) serves as a sink for trace, or similar async
 
 The buffer is contiguous in the virtual address space, but may be distributed in the physical (or guest physical) address space.  It is a circular buffer, such that writes commence at the base, and overwrite any older data there, once the buffer is full.  There exists a mechanism to pend a local interrupt before the buffer wraps, for cases where software does not wish to have any asynchronous data overwritten.
 
-Ssamb is never implemented as a stand-alone extension, each instance of Ssamb is implemented alongside one or more sources of asynchronous data associated with it.  For each instance of Ssamb the `samb*` registers below will be implemented, with names and CSR numbers specific to the feature or extension that employs Ssamb.
+Ssamb is never implemented as a stand-alone extension. Each instance of Ssamb is implemented alongside one or more extensions that include a source of asynchronous data, such as Sspdis or Smstrc/Ssstrc.  For each instance of Ssamb the `samb*` registers below will be implemented, with names and CSR numbers specific to the feature or extension that employs Ssamb.
 
 WARNING: _There is still an open question whether AMB should simply require pinned pages, and throw an error if a translation fault occurs.  Other architectures have such requirements.  Pinning requires that the entire buffer be kept resident, which adds to memory pressure, and limits the size of the buffer. But it avoids some hardware complexity and page fault overheads._
 
@@ -39,17 +39,17 @@ The buffer size is 2^SIZE+12^, supporting sizes from 4 KB (SIZE=0) to 4 GB (SIZE
 
 WARNING: _The largest AUX buffer size allowed by Linux perf for self-hosted trace from other architectures is 4 MiB, but those require pinned memory._
 
-The BMIEN bit enables buffer management interrupts.  When BMIEN=1, a local asynchronous memory buffer interrupt (LAMBI) is pended when hardware increment of `sambaddr` causes the two most significant bits of the the write pointer offset portion to transition to match BMITH.  For example, if BMIEN=1 and BMITH=2, a LAMBI will be pended when the buffer is half full.
+The BMIEN bit enables buffer management interrupts.  When BMIEN=1, a local asynchronous memory buffer interrupt (LAMBI) is pended when hardware increment of `sambaddr` causes the two most significant bits of the write pointer offset portion to transition to match BMITH.  For example, if BMIEN=1 and BMITH=2, a LAMBI will be pended when the buffer is half full.
 
-The TF and BMI bits report the source of a pended LAMBI.  When BMI=1, a buffer management interrupt was pended.  When TF=1, a buffer translation fault occurred, see <<ambaddr>> for address translation details.  Software should clear the TF and BMI bits once the associated LAMBI has been serviced.
+The TF and BMI bits report the source of a pended LAMBI.  When BMI=1, a buffer management interrupt was pended.  When TF=1, a buffer translation fault occurred, see <<ambaddr>> for address translation details.  Hardware sets these bits when the LAMBI is pended.  Software should clear them once the associated LAMBI has been serviced.
 
 When a buffer translation fault occurs, the buffer offset associated with the offending page is written to TFPTR, such that the full virtual address of the page base can be derived by combining the base address portion of `sambaddr` with the offset value as shown below.
 
 FaultAddress = (`sambaddr` & (2^`sambcs`.SIZE+12^ - 1)) | (`sambcs`.TFPTR<<12)
 
-NOTE: _Because implementations may pre-translate AMB pages (see <<ambaddr>>), the address in `sambaddr` may not reflect the page that incurred the AMB translation fault.  The TFPTR provides a means to report a fault to a different page._
+NOTE: _Because implementations may pre-translate AMB pages (see <<ambaddr>>), translation faults can occur both for the current page (indicated by the address in `sambaddr`) and for following pages that have not yet been written.  Thus the address in `sambaddr` may not reflect the page that incurred the AMB translation fault.  TFPTR provides the means to report a fault to a different page within the AMB._
 
-NOTE: _When an AMB page lookup raises a translation fault, the lookup may be suspended.  If AMB is then disabled, the lookup should be resumed when AMB is re-enabled.  Otherwise the lookup should resume once the TF bit is cleared by software, indicating that the page is now available._
+NOTE: _After an AMB translation fault or guest-page fault is raised, hardware should attempt to translate the page anew once the TF bit is cleared by software, indicating that the page is now available._
 
 WARNING: _Extensions that use AMB probably want to include a bit that inhibits asynchronous data generation during LAMBI handling.  Inhibit for any interrupt to mode __x__ when __x__cause.LAMBI=1?_
 
@@ -61,7 +61,7 @@ The WRAP bit indicates that the buffer has wrapped at least once, and hence the 
 
 The TRV bit is a read-only indication to software that the hardware has successfully translated the buffer current page, and optionally one or more following pages.  
 
-It is strongly recommended that software only write to `sambcs` while any associated asynchronous data sources are disabled and `sambcs`.EMPTY=1.  This avoids race conditions between software writes and hardware updates of status fields.
+It is strongly recommended that software only write to `sambcs` while any associated asynchronous data sources are disabled and `sambcs`.EMPTY=1.  This avoids race conditions between software writes and hardware updates of status fields, and changes to the AMB configuration while asynchronous data writes are in flight.  Behavior is UNDEFINED if this guidance is not followed.
 
 ==== Supervisor Asynchronous Memory Buffer Address Register (`sambaddr`)
 
@@ -83,7 +83,7 @@ The local asynchronous memory buffer interrupt (LAMBI) bit in `mip`, `mie`, and 
 
 For implementations that support Smaia, the LAMBI bit in `mvip` and `mvien` is writable.  For implementations that support Smaia/Ssaia and the H extension, the LAMBI bit in `hvip` and `hvien` is writable.
 
-The priority of LAMBIs lies immediately below that of local counter overflow interrupts (LCOFIs).
+LAMBI is bit 14 in all registers reference above.  The priority of LAMBIs lies immediately below that of local counter overflow interrupts (LCOFIs).
 
 [[ambendis]]
 === Enabling and Disabling
@@ -92,7 +92,7 @@ When enabling asynchronous data collection, software should first initialize `sa
 
 When disabling asynchronous data collection, software should first disable asynchronous data source(s), which will initiate a flush of any internally buffered data.  Software should then wait until AMB is empty (`sambcs`.EMTPY=1).  After this AMB can be disabled by clearing `sambcs`.EN.
 
-Execution of the enabling or disabling steps described above in a different order risks asynchronous data loss.
+Execution of the enabling or disabling steps described above in a different order risks asynchronous data loss.  See <<datamgmt>> for more details on data loss.
 
 === Memory Semantics
 
@@ -111,6 +111,10 @@ Any dropping of asynchronous data must happen at the source, to ensure that the 
 
 [NOTE]
 ====
+_Asynchronous data loss typically results from scenarios where the data is being produced faster than the AMB can consume it.  If this persists, any internal buffering will fill and new data will have to be dropped.  Once internal buffers are able to drain, new data can again be consumed.  The data source is expected to ensure that processing software can recover from any data loss, which may require indication of the data loss within the data stream._
+
+_If the data source is enabled while AMB is disabled, or while AMB is awaiting a translation for the current page, the AMB is unable to sink any data.  It is recommended to avoid such scenarios by following the guidance in <<ambendis>>, otherwise data loss is likely._
+
 _To avoid scenarios where the source is flushed but the AMB is not able to sink all asynchrononous data bytes, the implementation should backpressure the source before the remaining translated AMB space is less than the size of the internal buffer.  Otherwise there is a risk that a translation fault and/or guest-page fault is needed to in order to sink buffered data, and the trap could lead to the source being disabled (e.g., due to context switch) before the fault is handled.  This would result in unrecoverable data loss._
 ====
 
@@ -136,13 +140,15 @@ _This mechanism is also motivated by an expectation that implementations may buf
 
 WARNING: _This does not cleanly support a nested hypervisor tracing/monitoring a true guest.  In such a usage, the guest trace would ideally use the nested hypervisor's `vsatp`/`hgatp` to translate AMB addresses.  In the TG we discussed adding `tatp` and `hgtatp` registers that are used just for translation of AMB addresses, and could be assigned the values of the nested hypervisor's `vsatp`/`hgatp` in this usage.  But this feels like overkill to support this usage.  A root hypervisor can support this usage using its own `satp` to translate AMB addresses during guest execution, then map those physical AMB pages to the nested hypervisor's AMB range via `hgatp`._
 
-The process of translating AMB write addresses can result in translation faults.  A page fault incurred during first-level page lookup, based on `satp` when the effective privilege mode is S-mode or `vsatp` when the effective privilege mode is VS-mode, raises a LAMBI interrupt with a cause of translation fault (`sambcs`.TF=1), and the buffer offset of the offending page indicated in `sambcs`.TFPTR.
+The process of translating AMB write addresses can result in translation faults.  A page fault incurred during first-stage translation, based on `satp` when the effective privilege mode is S-mode or `vsatp` when the effective privilege mode is VS-mode, pends a LAMBI interrupt with a cause of translation fault (`sambcs`.TF=1), and the buffer offset of the offending page indicated in `sambcs`.TFPTR.
 
 NOTE: _Unlike explicit stores, asynchronous memory buffer writes do not raise "Store/AMO Page Fault" exceptions as a result of translation faults.  By instead pending a LAMBI with TF=1, an AMB translation fault can remain pending if it cannot be handled in the current privilege mode._
 
-A page fault incurred during the second-level, or G-stage, page lookup raises a Store/AMO guest-page fault, just as explicit and other implicit stores do.  When AMB writes execute with VS-mode privilege, and Store/AMO guest-page faults are delegated to S-mode (mideleg[23]=1), AMB page lookups must be suspended while in M-mode.  This avoids Store/AMO guest-page faults raised in M-mode, where they cannot be handled.
+A page fault incurred during the second stage, or G-stage, translation raises a Store/AMO guest-page fault, just as explicit and other implicit stores do.  When AMB writes execute with VS-mode privilege, and Store/AMO guest-page faults are delegated to S-mode (mideleg[23]=1), translating of AMB pages must be suspended while in M-mode.  This avoids Store/AMO guest-page faults raised in M-mode, where they cannot be handled.
 
 NOTE: _If the asynchronous data source is backpressured while waiting for the current AMB page to be translated, there is a risk of data loss due to internal buffer overflow.  One method to avoid such loss is to pre-translate the next AMB page(s), ensuring that the translation(s) are cached before the page(s) need to be written.  A simple implementation would cache translations for the current and next AMB page.  When page X is filled, writes transition to (already translated) page X+1, and translation begins for page X+2.  It is recommended that the number of pages pre-translated is sufficient to match or exceed the size of any internal buffering, to ensure that the internal buffer can always be flushed without requiring a page walk or translation fault._
+
+NOTE: _It is expected that configurations that select VS-mode privilege for AMB writes are used only by, or on behalf of, a virtualization guest running when V=1.  Such a configuration would naturally inhibit asynchronous data generation in M-mode, hence the suspension of AMB page translations described above does not risk data loss, assuming the pre-translation guidelines above are followed._
 
 Cached AMB page translations can be flushed by SFENCE and HFENCE instructions, globally or per ASID/VMID, just as other translations are.  Such fence operations may result in asynchronous data loss if performed while AMB is enabled and not empty.  Cached AMB page translations are also flushed when `sambcs`.EN is cleared.
 

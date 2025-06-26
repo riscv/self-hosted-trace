@@ -12,7 +12,7 @@ WARNING: _There is still an open question whether AMB should simply require pinn
 
 ==== Supervisor Asynchronous Memory Buffer Configuration and Status Register (`sambcs`)
 
-The `sambcs` register is a 64-bit WARL register that provides configuration and status fields for the asynchronous memory buffer.  
+The `sambcs` register is a 64-bit read-write register that provides configuration and status fields for the asynchronous memory buffer.  
 
 For RV32, bits 63:32 of `sambcs` can be accessed via the `sambcsh` CSR.
 
@@ -37,7 +37,7 @@ For RV32, bits 63:32 of `sambcs` can be accessed via the `sambcsh` CSR.
 
 When EN=1, the AMB is enabled to receive asynchronous data from source(s).  Once enabled, the AMB may translate buffer page(s), which can result in translation faults and/or guest-page faults, and cache those translations.  See <<ambaddr>> for address translation details, and see <<ambendis>> for details on enabling and disabling AMB.
 
-The buffer size is 2^SIZE+12^, supporting sizes from 4 KB (SIZE=0) to 4 GB (SIZE=20).  SIZE values 21..31 are reserved.  An AMB instance may support only a subset of SIZE values.  The maximum supported size can be discovered by writing all 1s to SIZE and reading back the resulting value.  All sizes between the minimum (4 KB) and the maximum supported size are supported.
+The buffer size is 2^SIZE+12^, supporting sizes from 4 KB (SIZE=0) to 4 GB (SIZE=20).  SIZE is a WARL field with values 21..31 reserved.  An AMB instance may implement only a subset of supported SIZE values.  The maximum implemented size can be discovered by writing all 1s to SIZE and reading back the resulting value.  All sizes between the minimum (4 KB) and the maximum implemented size are implemented.
 
 WARNING: _The largest AUX buffer size allowed by Linux perf for self-hosted trace from other architectures is 4 MiB, but those require pinned memory._
 

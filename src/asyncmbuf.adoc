@@ -22,11 +22,11 @@ For RV32, bits 63:32 of `sambcs` can be accessed via the `sambcsh` CSR.
 {reg: [
     {bits: 1, name: 'EN'},
     {bits: 5, name: 'SIZE'},
-    {bits: 3, name: 'WARL', type: 1},
+    {bits: 3, name: 'WPRI', type: 1},
     {bits: 2, name: 'BMITH'},
     {bits: 1, name: 'BMIEN'},
     {bits: 20, name: 'TFPTR'},
-    {bits: 27, name: 'WARL', type: 1},
+    {bits: 27, name: 'WPRI', type: 1},
     {bits: 1, name: 'TF'},
     {bits: 1, name: 'BMI'},
     {bits: 1, name: 'WRAP'},

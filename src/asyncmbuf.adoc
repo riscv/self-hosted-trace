@@ -14,7 +14,7 @@ WARNING: _There is still an open question whether AMB should simply require pinn
 
 The `sambcs` register is a 64-bit read-write register that provides configuration and status fields for the asynchronous memory buffer.  
 
-For RV32, bits 63:32 of `sambcs` can be accessed via the `sambcsh` CSR.
+Optionally, if RV32 is supported, bits 63:32 of `sambcs` can be accessed via the `sambcsh` CSR.
 
 .Supervisor Asynchronous Memory Buffer Configuration and Status Register (`sambcs`)
 [wavedrom, , svg]
@@ -26,7 +26,8 @@ For RV32, bits 63:32 of `sambcs` can be accessed via the `sambcsh` CSR.
     {bits: 2, name: 'BMITH'},
     {bits: 1, name: 'BMIEN'},
     {bits: 20, name: 'TFPTR'},
-    {bits: 27, name: 'WPRI', type: 1},
+    {bits: 1, name: 'SOF'},
+    {bits: 26, name: 'WPRI', type: 1},
     {bits: 1, name: 'TF'},
     {bits: 1, name: 'BMI'},
     {bits: 1, name: 'WRAP'},
@@ -45,13 +46,9 @@ Software should only write to `sambcs` while any associated asynchronous data so
 
 Similarly, status bits (TF, BMI, WRAP, EMPTY, TRV) should be considered volatile while asynchronous data is incoming.  To stabilize the values of status bits, follow the same guidance above to ensure that asychronous data is no longer incoming.
 
-WARNING: _Should the EMPTY bit be AMB state, or data source state?  Kind of depends on where buffering resides.  Maybe both?_
-
-===== Interrupt Fields
-
 The BMIEN bit enables buffer management interrupts.  When BMIEN=1, a local asynchronous memory buffer interrupt (LAMBI) is pended when hardware increment of `sambaddr` causes the two most significant bits of the write pointer offset portion to transition to match BMITH.  For example, if BMIEN=1 and BMITH=2, a LAMBI will be pended when the buffer is half full.
 
-The TF and BMI bits report the source of a pended LAMBI.  When BMI=1, a buffer management interrupt was pended.  When TF=1, a buffer translation fault occurred, see <<ambaddr>> for address translation details.  Hardware sets these bits when the LAMBI is pended.  Software should clear them once the associated LAMBI has been serviced.
+The TF and BMI bits report the source of a pended LAMBI.  When BMI=1, a buffer management interrupt was pended.  When TF=1, a buffer translation fault occurred, and the buffer offset for the offending page is reported in TFPTR.  See <<ambaddr>> for address translation details.  Hardware sets these fields when the LAMBI is pended.  Software should TF and BMI once the associated LAMBI has been serviced.
 
 When a buffer translation fault occurs, the buffer offset associated with the offending page is written to TFPTR, such that the full virtual address of the page base can be derived by combining the base address portion of `sambaddr` with the offset value as shown below.
 
@@ -61,17 +58,13 @@ NOTE: _Because implementations may pre-translate AMB pages (see <<ambaddr>>), tr
 
 NOTE: _After an AMB translation fault or guest-page fault is raised, if EN=1 hardware should attempt to translate the page anew once the TF bit is cleared by software, indicating that the page is now available._
 
-WARNING: _Extensions that use AMB probably want to include a bit that inhibits asynchronous data generation during LAMBI handling.  Inhibit for any interrupt to mode __x__ when __x__cause.LAMBI=1?_
-
-===== Status Fields
-
 The EMPTY bit is a read-only indication to software that all internally buffered asynchronous data has been flushed and is visible to software reads.
 
 NOTE: _EMPTY should factor in any empty indication from the associated data source(s), such that EMPTY is set only when all enabled data sources are empty._
 
-The WRAP bit indicates that the buffer has wrapped at least once, and hence the data above the write pointer is valid.
+The WRAP bit indicates that the buffer has wrapped at least once, and hence the data above the write pointer is valid.  Buffer wrap only occurs if SOF (Stop-on-full) is clear; when SOF is set AMB drops any asynchronous data received once the buffer is full.
 
-The TRV bit is a read-only indication to software that the hardware has successfully translated the buffer current page, and optionally one or more following pages.  
+The TRV bit is a read-only indication to software that the hardware has successfully translated the buffer current page, and optionally one or more following pages.  See <<ambendis>> for more details. 
 
 ==== Supervisor Asynchronous Memory Buffer Address Register (`sambaddr`)
 

@@ -19,7 +19,7 @@
 #   docker pull riscvintl/riscv-docs-base-container-image:latest
 #
 
-DOCS := riscv-privileged riscv-unprivileged
+DOCS := riscv-strc
 
 DATE ?= $(shell date +%Y-%m-%d)
 DOCKER_IMG := riscvintl/riscv-docs-base-container-image:latest

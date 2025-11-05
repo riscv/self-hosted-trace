@@ -1,5 +1,11 @@
 == Self-hosted Trace ISA Extension (Smstrce1p0/Ssstrce1p0 and Smstrcn1p0/Ssstrcn1p0)
 
+The Smstrce1p0/Ssstrce1p0 and Smstrcn1p0/Ssstrcn1p0 extensions introduce an ISA interface to the existing E-trace and N-trace (non-ISA) trace extensions, respectively.  The intent is to simplify in-target software use of trace, also known as self-hosted trace, for debugging, performance analysis, fuzzing, code coverage, and other applications.
+
+The Smstrc*/Ssstrc* extensions depend upon Ssamb, as an asynchronous memory buffer is used as the trace sink.
+
+"Strc" refers to self-hosted trace, "e" vs "n" refer to E-trace vs N-trace, and "1p0" refers to version 1.0 of each trace extension.  The machine-level extensions, Smstrc*, encompass all newly added registers and behavior modifications for a hart across all privilege levels. The corresponding supervisor-level extensions, Ssstrc*, are essentially identical to Smstrc*, except that they exclude machine-level registers and behaviors not intended to be directly accessible at the supervisor level.
+
 [[strccsrs]]
 === CSRs
 
@@ -96,11 +102,11 @@ The `sstrcctl` register provides supervisor mode access to a subset of `mstrcctl
 
 ==== Supervisor Self-hosted Trace Control and Status (`sstrcambcs`)
 
-The `sstrcambcs` register is the Self-hosted trace instatiation of the `sambcs` register defined by the Ssamb extension, see <<ssamb>>.  See <<strcmem>> for Self-hosted trace memory buffer details.
+The `sstrcambcs` register is the Self-hosted trace instantiation of the `sambcs` register defined by the Ssamb extension, see <<ssamb>>.  See <<strcmem>> for Self-hosted trace memory buffer details.
 
 ==== Supervisor Self-hosted Trace AMB Address (`sstrcambaddr`)
 
-The `sstrcambaddr` register is the Self-hosted trace instatiation of the `sambaddr` register defined in the Ssamb specification, see <<ssamb>>.  See <<strcmem>> for Self-hosted trace Memory Buffer details.
+The `sstrcambaddr` register is the Self-hosted trace instantiation of the `sambaddr` register defined in the Ssamb specification, see <<ssamb>>.  See <<strcmem>> for Self-hosted trace Memory Buffer details.
 
 ==== Supervisor Context Register (`scontext`)
 

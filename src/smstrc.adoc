@@ -238,7 +238,7 @@ indicates that there is no jump target cache implemented.
 |_ecause_width_p_ | 7 (Interrupt bit + 0..63 cause values) |  Width of *exception cause* bus
 |_ecause_choice_p_ | Any |  Number of bits of exception cause to match using
 multiple choice
-|_f0s_width_p_ | 1, or 2 if want room for growth? |  Width of the *subformat* field in format 0 _te_inst_ packets.
+|_f0s_width_p_ | Implementation-defined |  Width of the *subformat* field in format 0 _te_inst_ packets.
 |_filter_context_p_ | Any | Filtering on context supported when 1
 |_filter_time_p_ | Any | Filtering on time supported when 1
 |_filter_excint_p_ | Any |  Filtering on exception cause or interrupt
@@ -270,11 +270,11 @@ inferable jumps
 
 ===== Required Support Packet
 
-There are 3 parameters whose values may vary across Smstrce*/Ssstrce* implementations, and whose values must be known by the decoder: _time_width_p_, _cache_size_p_, and _brpred_size_p_.  In order to provide these values in a standard manner, E-trace extension _TBD_ is required by Smstrce*/Ssstrce*.  This extension requires support for a standard Support packet (format 3 subformat 3, see chapter 7.5 of the Efficient Trace for RISC-V v2.0 Specification), which reports parameter values.
+There are 4 parameters whose values may vary across Smstrce*/Ssstrce* implementations, and whose values must be known by the decoder: _time_width_p_, _cache_size_p_, _brpred_size_p_, and _f0s_width_p.  In order to provide these values in a standard manner, E-trace extension _TBD_ is required by Smstrce*/Ssstrce*.  This extension requires support for a standard Support packet (format 3 subformat 3, see chapter 7.5 of the Efficient Trace for RISC-V v2.0 Specification), which reports parameter values.
 
 NOTE: _Support packets are not provided with every Sync packet, but are provided on trace start and trace end.  For a circular buffer usage, the trace start packet may be overwritten but the trace end packet should always be available.  The decoder will need to read the end of the buffer first, to get parameter values from the Support packet there, before searching for the first Sync packet from which to begin trace processing._ 
 
-NOTE: _Providing parameters in the trace ensures that a decoder can decode a trace that was live migrated across implementations with differing parameter values._
+NOTE: _Providing parameters in the trace ensures that a decoder can decode a trace that was live-migrated across implementations with differing parameter values._
 
 WARNING: _Iain will provide the E-trace extension that specifies the Support packet format._
 

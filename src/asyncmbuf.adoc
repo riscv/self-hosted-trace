@@ -173,3 +173,20 @@ _Depending on the AMB size and the asynchronous data rate, AMB writes can touch 
 _Cached AMB page translations can be flushed by SFENCE and HFENCE instructions, globally or per ASID/VMID, just as other translations are.  Such fence operations may result in asynchronous data loss if performed while AMB is enabled and not empty._
 ====
 
+[appendix]
+=== Handling Local Asynchronous Memory Buffer Interrupts
+
+Local asynchronous memory buffer interrupts (LAMBIs) are raised as a result of either of the two conditions below.
+
+a. The buffer management mechanism is enabled (`sambcs`.BMIEN=1) and the buffer threshold has been reached (see `sambcs`.BMITH definition in <<sambcs>>).  In this case `sambcs`.BMI is set.
+b. A translation fault was encountered while translating an AMB page.  In this case `sambcs`.TF is set.
+
+Software should follow the sequence below when servicing a LAMBI.
+
+1. Disable all asynchronous data sources, and wait for `sambcs`.EMPTY=1 for each.
+* This ensures that asychronous data generation ceases, and that all data generated has been emitted to the AMB.  This serves to avoid race conditions where conditions (a) or (b) above occur during LAMBI handler execution, which could result in the LAMBI being cleared without all causes being serviced.
+2. For each `sambcs` register, read TF and BMI.
+* If TF=1, call the appropriate routine to service the translation fault, then clear TF.  This routine may be shared with the page fault exception handler.
+* If BMI=1, perform any buffer management tasks desired, then clear BMI.
+3. Re-enable any asynchronous data sources that were enabled at the time of step 1.
+4. Return

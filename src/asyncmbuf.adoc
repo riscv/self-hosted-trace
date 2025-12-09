@@ -20,6 +20,7 @@ _There are also middle-ground options.  Some extensions that leverage Ssamb may 
 
 === CSRs
 
+[[sambcs]]
 ==== Supervisor Asynchronous Memory Buffer Configuration and Status Register (`sambcs`)
 
 The `sambcs` register is a 64-bit read-write register that provides configuration and status fields for the asynchronous memory buffer.  
@@ -178,15 +179,21 @@ _Cached AMB page translations can be flushed by SFENCE and HFENCE instructions, 
 
 Local asynchronous memory buffer interrupts (LAMBIs) are raised as a result of either of the two conditions below.
 
-a. The buffer management mechanism is enabled (`sambcs`.BMIEN=1) and the buffer threshold has been reached (see `sambcs`.BMITH definition in <<sambcs>>).  In this case `sambcs`.BMI is set.
-b. A translation fault was encountered while translating an AMB page.  In this case `sambcs`.TF is set.
+a. The buffer management mechanism is enabled (`sambcs`.BMIEN=1) and the buffer threshold has been reached (see `sambcs`.BMITH definition in <<sambcs>>).  In this case `sambcs`.BMI is set to 1.
+b. A translation fault was encountered while translating an AMB page.  In this case `sambcs`.TF is set to 1.
 
-Software should follow the sequence below when servicing a LAMBI.
+Software should follow the sequence below when servicing a LAMBI in privilege mode _x_.
 
-1. Disable all asynchronous data sources, and wait for `sambcs`.EMPTY=1 for each.
-* This ensures that asychronous data generation ceases, and that all data generated has been emitted to the AMB.  This serves to avoid race conditions where conditions (a) or (b) above occur during LAMBI handler execution, which could result in the LAMBI being cleared without all causes being serviced.
-2. For each `sambcs` register, read TF and BMI.
-* If TF=1, call the appropriate routine to service the translation fault, then clear TF.  This routine may be shared with the page fault exception handler.
-* If BMI=1, perform any buffer management tasks desired, then clear BMI.
-3. Re-enable any asynchronous data sources that were enabled at the time of step 1.
-4. Return
+For each `sambcs` register implemented:
+
+1. Disable the asynchronous data source following the guidance in <<ambendis>>.
+** This ensures that asychronous data generation ceases, and that all data generated has been emitted to the AMB.  This serves to avoid race conditions where conditions (a) and/or (b) above occur during LAMBI handler execution, which could result in the LAMBI being cleared without all causes being serviced.
+2. Clear `__x__ip`.LAMBI
+** Doing this after step 1 ensures that any LAMBI conditions that arise during step 1 do not result in a spurious LAMBI following this one.
+** This step must be done before step 4, but could optionally follow step 3.
+3. Service the LAMBI cause(s).
+** If `sambcs`.TF=1, call the appropriate routine to service the translation fault, then clear TF.  This routine may be shared with the page fault exception handler.
+** If `sambcs`.BMI=1, perform any buffer management tasks desired, including any modifications to the AMB configuration.  Then clear BMI.
+4. Re-enable any data sources disabled in step 1, following the guidance in <<ambendis>>.
+** After this step asynchronous data generation resumes, which could result in a new LAMBI being pended.  Because `__x__status`.__x__IE=0 during handler execution, any new LAMBI will remain pending until the handler completes.
+** The handler could opt to perform step 4 for each AMB instance after steps 1-3 are completed for all instances, if data generation during handler execution is not desired.

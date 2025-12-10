@@ -358,7 +358,7 @@ Smstrc*/Ssstrc* is intended to leverage the existing E-trace and N-trace extensi
 | trTeFilter0Control.trTeFilterMatchImpdef | 0 |
 | trTeFilter0Control.trTeFilterMatchDtype | 0 |
 | trTeFilter0Control.trTeFilterMatchDsize | 0 |
-| trTeFilter0MatchInst.trTeFilterMatchChoicePrivilege | {0, 0, `vsstrcctl`.VS, `vsstrcctl`.VU, `mstrcctl`.M, 0, `mstrcctl`.S, `mstrcctl`.U} | This assumes an implementation of the hart-trace interface such that the privilege mode inputs align with the privilege mode encodings specified in the RISC-V Privileged ISA Specification.
+| trTeFilter0MatchInst.trTeFilterMatchChoicePrivilege | {0, `vsstrcctl`.VS, `vsstrcctl`.VU, 0, `mstrcctl`.M, 0, `mstrcctl`.S, `mstrcctl`.U} | Matches the _priv_ encoding defined in Table 8 of the Efficient Trace for RISC-V Specification v2.0.
 | trTeFilter0MatchInst.trTeFilterMatchValueInterrupt | 0 |
 | trTeFilter0MatchEcauseLow | 0 |
 | trTeFilter0MatchEcauseHigh | 0 |

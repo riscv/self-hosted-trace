@@ -67,8 +67,6 @@ FaultAddress = (`sambaddr` & (2^`sambcs`.SIZE+12^ - 1)) | (`sambcs`.TFPTR<<12)
 
 NOTE: _Because implementations may pre-translate AMB pages (see <<ambaddr>>), translation faults can occur both for the current page (indicated by the address in `sambaddr`) and for following pages that have not yet been written.  Thus the address in `sambaddr` may not reflect the page that incurred the AMB translation fault.  TFPTR provides the means to report a fault to a different page within the AMB._
 
-NOTE: _After an AMB translation fault or guest-page fault is raised, if EN=1 hardware should attempt to translate the page anew once the TF bit is cleared by software, indicating that the page is now available._
-
 The EMPTY bit is a read-only indication to software that all internally buffered asynchronous data has been flushed and is visible to software reads.
 
 NOTE: _EMPTY should factor in any empty indication from the associated data source(s), such that EMPTY is set only when all enabled data sources are empty._
@@ -106,9 +104,9 @@ When enabling asynchronous data collection, software should first initialize `sa
 
 Once AMB is enabled (`sambcs`.EN=1), translation of the current AMB page (at `sambaddr`), and optionally one or more following page(s), will commence.  It is recommended that software wait until `sambcs`.TRV=1 before enabling enabling the asynchronous data source(s), to avoid loss of data while waiting for this translation process.  One or more translation faults and/or guest-page faults may have to be serviced before TRV=1.
 
-When disabling asynchronous data collection, software should first disable asynchronous data source(s), which will initiate a flush of any internally buffered data.  Software should then wait until AMB reports empty (`sambcs`.EMTPY=1).  After this AMB can be disabled by clearing `sambcs`.EN.
+When disabling asynchronous data collection, software should first disable asynchronous data source(s), which will initiate a flush of any internally buffered data.  Software should then wait until AMB reports empty (`sambcs`.EMTPY=1), to ensure that data downstream from the source is not dropped.  After this AMB can be disabled by clearing `sambcs`.EN.
 
-Execution of the enabling or disabling steps described above in a different order risks asynchronous data loss.  See <<datamgmt>> for more details on data loss.
+Failure to follow the guidance above when enabling or disabling asynchronous data generation to AMB may result in loss of asynchronous data.
 
 === Memory Semantics
 
@@ -121,28 +119,14 @@ _For asynchronous data sources that are processed offline (e.g., instruction tra
 _For asynchronous data sources that are processed online (e.g., sample records, such that each record is collected as it is written), it may be desirable to assign buffer pages a cacheable attribute.  This avoids adding cache-miss latency to online collection routines._
 ====
 
-[[datamgmt]]
-=== Asynchronous Data Management
-
-Any dropping of asynchronous data must happen at the source, to ensure that the data loss is recoverable.  An AMB implementation must apply backpressure to the source to avoid scenarios where asynchronous data may be dropped downstream from the source.
-
-[NOTE]
-====
-_Asynchronous data loss typically results from scenarios where the data is being produced faster than the AMB can consume it.  If this persists, any internal buffering will fill and new data will have to be dropped.  Once internal buffers are able to drain, new data can again be consumed.  The data source is expected to ensure that processing software can recover from any data loss, which may require indication of the data loss within the data stream._
-
-_If the data source is enabled while AMB is disabled, or while AMB is awaiting a translation for the current page, the AMB is unable to sink any data.  It is recommended to avoid such scenarios by following the guidance in <<ambendis>>, otherwise data loss is likely._
-
-_To avoid scenarios where the source is flushed but the AMB is not able to sink all asynchrononous data bytes, the implementation should backpressure the source before the remaining translated AMB space is less than the size of the internal buffer.  Otherwise there is a risk that a translation fault and/or guest-page fault is needed to in order to sink buffered data, and the trap could lead to the source being disabled (e.g., due to context switch) before the fault is handled.  This would result in unrecoverable data loss._
-====
-
 [[ambaddr]]
-=== Privilege and Address Translation
+=== Asynchronous Write Privilege and Address Translation
 
 The effective privilege mode of AMB writes is selected by bits associated with each AMB instance in `menvcfg` and, if the H extension is implemented, `henvcfg`.  For the AMB associated with self-hosted trace (STRC), the full set of configuration options is illustrated below.
 
 [options="header", width="70%"]
 |===
-| `menvcfg`.STRCS | `henvcfg`.STRCV | Privilege | Translation
+| `menvcfg`.STRCS | `henvcfg`.STRCV | Effective Privilege Mode | Translation
 | 0 | - | M-mode | None (Bare)
 | 1 | 0 | S/HS-mode | `satp`
 | 1 | 1 | VS-mode | `vsatp`/`hgatp`
@@ -157,15 +141,15 @@ _This mechanism is also motivated by an expectation that implementations may buf
 
 WARNING: _This does not cleanly support a nested hypervisor tracing/monitoring a true guest.  In such a usage, the guest trace would ideally use the nested hypervisor's `vsatp`/`hgatp` to translate AMB addresses.  In the TG we discussed adding `tatp` and `hgtatp` registers that are used just for translation of AMB addresses, and could be assigned the values of the nested hypervisor's `vsatp`/`hgatp` in this usage.  But this feels like overkill to support this usage.  A root hypervisor can support this usage using its own `satp` to translate AMB addresses during guest execution, then map those physical AMB pages to the nested hypervisor's AMB range via `hgatp`._
 
-The process of translating AMB write addresses can result in translation faults.  A page fault incurred during first-stage translation, based on `satp` when the effective privilege mode is S-mode or `vsatp` when the effective privilege mode is VS-mode, pends a LAMBI interrupt with a cause of translation fault (`sambcs`.TF=1), and with the buffer offset of the offending page indicated in `sambcs`.TFPTR.
+The process of translating AMB write addresses can result in translation faults.  A page fault incurred during first-stage translation, controlled by `satp` when the effective privilege mode is S-mode or `vsatp` when the effective privilege mode is VS-mode, pends a LAMBI interrupt with a cause of translation fault (`sambcs`.TF=1), and with the buffer offset of the offending page indicated in `sambcs`.TFPTR.
 
-NOTE: _Unlike explicit stores, asynchronous memory buffer writes do not raise "Store/AMO Page Fault" exceptions as a result of translation faults.  By instead pending a LAMBI with TF=1, risks of destructive nested page faults, e.g., as a result of a synchronous page fault followed by an asynchronous page fault, are avoided.  Further, an AMB translation fault can remain pending if it cannot be handled in the current privilege mode._
+NOTE: _Unlike explicit stores or other implicit stores, asynchronous memory buffer writes do not raise "Store/AMO Page Fault" exceptions as a result of translation faults.  By instead pending a LAMBI with TF=1, risks of destructive nested page faults, e.g., as a result of a synchronous page fault followed by an asynchronous page fault, are avoided.  Further, unlike page fault exceptions, a LAMBI pended for an AMB translation fault can remain pending if it cannot be taken in the current privilege mode._
 
-A page fault incurred during the second stage, or G-stage, translation raises a Store/AMO guest-page fault, just as explicit and other implicit stores do.  When AMB writes execute with VS-mode privilege, and Store/AMO guest-page faults are delegated to S-mode (mideleg[23]=1), translating of AMB pages must be suspended while in M-mode.  This avoids Store/AMO guest-page faults raised in M-mode, where they cannot be handled.
+A page fault incurred during the second stage, or G-stage, translation raises a Load or Store/AMO guest-page fault, just as explicit accesses and other implicit accesses do.
 
-NOTE: _If the asynchronous data source is backpressured while waiting for the current AMB page to be translated, there is a risk of data loss due to internal buffer overflow.  One method to avoid such loss is to pre-translate the next AMB page(s), ensuring that the translation(s) are cached before the page(s) need to be written.  A simple implementation would cache translations for the current and next AMB page.  When page X is filled, writes transition to (already translated) page X+1, and translation begins for page X+2.  It is recommended that the number of pages pre-translated is sufficient to match or exceed the size of any internal buffering, to ensure that the internal buffer can always be flushed without requiring a page walk or translation fault._
+NOTE: _AMB guest-page faults do not raise LAMBIs since the two must be handled in different privilege modes, much the way non-AMB page faults and guest-page faults are._
 
-NOTE: _It is expected that configurations that select VS-mode privilege for AMB writes are used only by, or on behalf of, a virtualization guest running when V=1.  Such a configuration would naturally inhibit asynchronous data generation in M-mode, hence the suspension of AMB page translations described above does not risk data loss, assuming the pre-translation guidelines above are followed._
+WARNING: _Adding yet another new local interrupt for AMB guest-page faults was considered.  It would avoid the need to hold guest-page faults pending to avoid nesting issues (see <<ambpretrans>>), but this was ultimately deemed insufficient motivation to consume another local priv-ISA interrupt encoding._
 
 [NOTE]
 ====
@@ -197,3 +181,33 @@ For each `sambcs` register implemented:
 4. Re-enable any data sources disabled in step 1, following the guidance in <<ambendis>>.
 ** After this step asynchronous data generation resumes, which could result in a new LAMBI being pended.  Because `__x__status`.__x__IE=0 during handler execution, any new LAMBI will remain pending until the handler completes.
 ** The handler could opt to perform step 4 for each AMB instance after steps 1-3 are completed for all instances, if data generation during handler execution is not desired.
+
+[[ambpretrans]]
+[appendix]
+=== AMB Page Pre-translation
+
+Any loss of asynchronous data is undesirable, but it is at times unavoidable.  Asynchronous data loss falls into two categories:
+
+** *Recoverable data loss*, which occurs when data is dropped by the data source.  The source can ensure that data is dropped on record (or packet/message) boundaries, and that software is provided with any information needed to process the data despite the loss.
+** *Unrecoverable data loss*, which occurs when data is dropped downstream from the source.  In this case data loss may not be aligned with data record boundaries, and hence partial records may be observed.  Software is typically not able to process impacted records and, depending on the encoding scheme, may not be able to process any data following the loss.
+
+Implementations should endeavor to minimize recoverable data loss and, for software that follows the guidance provided in this specification, avoid unrecoverable data loss entirely.  This can be accomplished by following the implementation guidelines below.
+
+. While AMB is enabled (`sambcs`.EN=1), utilize AMB page pre-translation to ensure that all data residing in internal buffers can be flushed without requiring a trap (translation fault or guest-page fault).
+** Pre-translation involves retrieving and caching address translations for not only the current AMB page (that is, the page that holds the AMB write pointer in `sambaddr`), but one or more subsequent AMB pages.  A simple implementation would cache translations for the current and next AMB page.  When page X is filled, writes transition to (already translated) page X+1, and translation begins for page X+2.  Pre-translating more than one page ahead is necessary only for implementatons with internal buffers larger than 4KB.
+** Flushes may be initiated in contexts where a trap cannot be properly handled; consider a translation fault raised while a hypervisor is saving guest AMB state during guest context switch.  In such cases, if AMB is disabled before internal buffers are fully flushed (i.e., `sambcs`.EN cleared while `sambcs`.EMPTY=0), data residing in internal buffers may be dropped in an unrecoverable manner.  Pre-translation avoids this by ensuring that a trap during flush is never necessary.
+** Pre-translation may be suspended when it encounters a translation fault or guest-page fault condition.  When suspended, pre-translation should resume when either `sambcs`.TF is cleared (translation fault serviced) or when the HFENCE.GVMA instruction completes (part of the guest-page fault handler flow).
+
+. Backpressure to the data source before the available space in translated AMB pages is less than the size of internal buffering.
+** Consider an implementation with 256 bytes of internal storage, and that pre-translates 1 page ahead.  If that pre-translation is delayed and `sambaddr` increments to within 256 bytes of the current page boundary, there is risk that a flush will require a trap.  By preemptively backpressuring to the source before this occurs, it is guaranteed that any data loss that could result is recoverable.
+
+. A guest-page fault condition encountered during pre-translation must be held pending while either of the following are true.
++
+.. The current privilege mode is M, and either the fault is delegated to HS-mode (`medeleg`[21]=1 for Load guest-page fault exceptions, or `medeleg`[23]=1 for Store guest-page fault exceptions), or `mstatus`.MIE=0; or
+.. The current privilege mode is HS and `sstatus`.SIE=0.
+
++
+This ensures that the exception is not taken when it cannot be handled (e.g., in M-mode when guest-page faults are delegated to HS-mode) or could be destructive (e.g., when already executing a guest-page fault handler).
+
+** If AMB is disabled while such a guest-page fault is pending, the pending fault can be dropped.  The condition will be re-discovered if/when AMB is re-enabled with the same configuration.
+** If AMB writes are configured with VS-mode privilege, it is expected that the data source will be configured to inhibit asynchronous data generation when V=0, making this case unlikely.  However, buffered data may still be emitted while V=0.  The guidelines above ensure that no trap is required to complete a buffer flush, hence deferring the guest-page fault in such cases does not risk data loss.

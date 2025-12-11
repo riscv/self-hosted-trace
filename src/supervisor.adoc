@@ -1127,7 +1127,7 @@ ignored by current implementations. Furthermore, if
 ASIDLEN<ASIDMAX, the implementation shall ignore bits
 ASIDMAX-1:ASIDLEN of the value held in _rs2_.
 
-SFENCE.VMA does not order implicit writes to an asynchronous memory buffer (AMB).  In order to avoid asynchronous data loss when invalidating AMB TLB entries, software must first follow the AMB disable sequence described in <<ambendis>>.  See <<ssamb>> for more details on AMB.
+When invalidating asynchronous memory buffer (AMB) translations, software must follow the guidance in <<ambendis>> to disable AMB before the invalidation, and re-enable it afterward, in order to avoid asynchronous data loss.  See <<ssamb>> for more details on AMB.
 
 An implicit read of the memory-management data structures may return any
 translation for an address that was valid at any time since the most

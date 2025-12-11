@@ -151,12 +151,18 @@ NOTE: _AMB guest-page faults do not raise LAMBIs since the two must be handled i
 
 WARNING: _Adding yet another new local interrupt for AMB guest-page faults was considered.  It would avoid the need to hold guest-page faults pending to avoid nesting issues (see <<ambpretrans>>), but this was ultimately deemed insufficient motivation to consume another local priv-ISA interrupt encoding._
 
-[NOTE]
-====
-_Depending on the AMB size and the asynchronous data rate, AMB writes can touch many pages in a short amount of time.  However, AMB uses page translations efficiently, writing exclusively to a single page until it is full, then moving to the next and writing exclusively to it.  Rather than allowing AMB writes to displace explicit memory access translations from the primary TLB, it may be more efficient to store cached AMB translations in a very small dedicated AMB TLB.  Two entries (current page and next page) will be sufficient for most implementations, though more may be warranted if the implementation pre-translates more than one page ahead._
+[[ambtlb]]
+==== Caching AMB Address Translations
 
-_Cached AMB page translations can be flushed by SFENCE and HFENCE instructions, globally or per ASID/VMID, just as other translations are.  Such fence operations may result in asynchronous data loss if performed while AMB is enabled and not empty._
-====
+Implementations should cache AMB address translations in order to improve performance and avoid asynchronous data loss.  Cached AMB page translations can be flushed by SFENCE and HFENCE instructions, globally or per ASID/VMID, just as other translations are.  See <<sfence.vma>> and <<hfence.vma>>.  
+
+NOTE: _Depending on the AMB size and the asynchronous data rate, AMB writes can touch many pages in a short amount of time.  However, AMB uses page translations efficiently, writing exclusively to a single page until it is full, then moving to the next and writing exclusively to it.  Rather than allowing AMB writes to displace explicit memory access translations from the primary TLB, it may be more efficient to store cached AMB translations in a very small dedicated AMB TLB.  Two entries (current page and next page) will be sufficient for most implementations, though more may be warranted if the implementation pre-translates more than one page ahead._
+
+To avoid asynchronous data loss, software must disable AMB (as prescribed in <<ambendis>>) before invalidating an active AMB TLB entry.  Active AMB TLB entries include the current AMB page (that is, the page that holds the write pointer held in `sambaddr`) and the pre-translated page(s) immediately following, which may be written in the event the data source is disabled and flushed.  An AMB page can only be pre-translated and translation-cached if it is present and writable by the AMB's effective privilege mode.
+
+If the current AMB page is invalidated, AMB will backpressure the source until the entry is restored.  If internal buffers fill in the interim, the source may have to drop data.  Further, if any pre-translated and active AMB TLB entries are invalidated, internally buffered data may not be able to be flushed without a trap, which risks unrecoverable data loss.  See <<ambpretrans>> for details.
+
+Any AMB and corresponding data source that software disabled in order to invalidate a TLB entry can be re-enabled afterward, using the guidance in <<ambendis>>.
 
 [appendix]
 === Handling Local Asynchronous Memory Buffer Interrupts

@@ -201,13 +201,7 @@ Implementations should endeavor to minimize recoverable data loss and, for softw
 . Backpressure to the data source before the available space in translated AMB pages is less than the size of internal buffering.
 ** Consider an implementation with 256 bytes of internal storage, and that pre-translates 1 page ahead.  If that pre-translation is delayed and `sambaddr` increments to within 256 bytes of the current page boundary, there is risk that a flush will require a trap.  By preemptively backpressuring to the source before this occurs, it is guaranteed that any data loss that could result is recoverable.
 
-. A guest-page fault condition encountered during pre-translation must be held pending while either of the following are true.
-+
-.. The current privilege mode is M, and either the fault is delegated to HS-mode (`medeleg`[21]=1 for Load guest-page fault exceptions, or `medeleg`[23]=1 for Store guest-page fault exceptions), or `mstatus`.MIE=0; or
-.. The current privilege mode is HS and `sstatus`.SIE=0.
-
-+
-This ensures that the exception is not taken when it cannot be handled (e.g., in M-mode when guest-page faults are delegated to HS-mode) or could be destructive (e.g., when already executing a guest-page fault handler).
-
+. A guest-page fault condition encountered during pre-translation must be held pending while V=0.
+** This ensures that the exception is not taken when it cannot be handled (e.g., in M-mode when guest-page faults are delegated to HS-mode) or could be destructive (e.g., when already executing a guest-page fault handler).
 ** If AMB is disabled while such a guest-page fault is pending, the pending fault can be dropped.  The condition will be re-discovered if/when AMB is re-enabled with the same configuration.
-** If AMB writes are configured with VS-mode privilege, it is expected that the data source will be configured to inhibit asynchronous data generation when V=0, making this case unlikely.  However, buffered data may still be emitted while V=0.  The guidelines above ensure that no trap is required to complete a buffer flush, hence deferring the guest-page fault in such cases does not risk data loss.
+** If AMB writes are configured with VS-mode privilege, it is expected that the data source will be configured to inhibit asynchronous data generation when V=0.  However, buffered data may still be emitted while V=0.  The guidelines above ensure that no trap is required to complete a buffer flush, hence deferring the guest-page fault in such cases does not risk data loss.

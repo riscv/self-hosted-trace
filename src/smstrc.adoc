@@ -174,7 +174,7 @@ For a packet that reports the results of multiple control transfer instructions,
 [[trcontext]]
 ==== Trace Context
 
-When context reporting is enabled (`mstrcctl`.CEN=1), the context value reported is as shown below.
+When context reporting is enabled (`mstrcctl`.CEN=1), the combination of `hcontext` and `scontext` must be reported.  For N-trace, these are reported in separate messages.  For E-trace, a single context value is reported, using the format given below.
 
 .Trace context value
 [wavedrom, , svg]

@@ -80,6 +80,8 @@ Once the count of events selected by SMOD reaches the threshold specified by SMA
 
 The EN, EMPTY, IT, CEN, STOF, SMOD, SMAX, TSEN, U, S, and M fields are required, while others are optional.  Unimplemented fields must be hardcoded to 0.
 
+NOTE: _Most of the fields listed above correspond to equivalent fields in the `trTeControl` and `trTeInstFeatures` registers from the RISC-V Trace Control Interface Specification.  See <<strctci>> for details on self-hosted trace ramifications on the Trace Control Interface._
+
 NOTE: _The RISC-V Trace Control Interface Specification defines a trTeDisSelfHosted bit, which allows an external debugger to reserve the trace encoder for its own use by causing the hart to behave as though Smstrc*/Ssstrc* are not implemented.  For this reason, it is advised that illegal instruction exceptions raised by writes to `__x__strcctl` do not result in kernel panic, but rather report that trace is not available._
 
 WARNING: _Etrace spec says trTeInstMode is hardcoded to 7?  TCI spec says E-trace and N-trace are 6.  E-trace also says ImplicitReturnMode=0, not supported?  And E-trace has trTeContext=0, though it always reports context when implemented.  Issue filed: https://github.com/riscv-non-isa/riscv-trace-spec/issues/240_
@@ -293,6 +295,7 @@ Bit 10 of trTeControl is the trTeDisSelfHosted bit.  When set, the hart behaves 
 
 NOTE: _The trTeDisSelfHosted bit provides a means for an external debugger to reserve the TE for itself, by hiding the availability of self-hosted trace from software running on the hart.  If set from boot, it is reasonable to expect that software will never attempt to use self-hosted trace.  Otherwise the debugger may need to handle exceptions that result from software attempts to access self-hosted trace CSRs.  The debugger could use an etrigger to intercept the exceptions, at which point it could emulate the access or clear trTeDisSelfHosted and reexecute the write, among other options._
 
+[[strctci]]
 [appendix]
 === Interoperability with Trace Control Interface
 

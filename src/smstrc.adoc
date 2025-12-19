@@ -370,3 +370,37 @@ Smstrc*/Ssstrc* is intended to leverage the existing E-trace and N-trace extensi
 |===
 
 NOTE: _The TECI is often implemented as an MMIO interface.  Implementations should ensure that only sufficently privileged entities, like an authenticated debugger, can access the TECI.  It should not be possible for the TECI for a given hart to be observed or written by a peer hart._
+
+[appendix]
+=== Configuration Scenarios
+
+This section describes likely self-hosted trace configurations for select scenarios in a typical "rich OS" environment.  Note that this list is far from comprehensive, and there are scenarios where many more combinations of the bits below may be appropriate.
+
+|===
+| Tracing | Application | OS | Application(s) + OS | Guest | Guest (emulated) | Guest(s) + Hypervisor
+| `mstateen0`.STRC | 1 | 1 | 1 | 1 | 1 | 1
+| `hstateen0`.STRC | NA | NA | NA | 1 | 0 | 0
+| `menvcfg`.STRCS | 1 | 1 | 1 | 1 | 1 | 1
+| `menvcfg`.STRCV | 0 | 0 | 0 | 1 | 1 | 0
+| `mideleg`.LAMBI | 1 | 1 | 1 | 1 | 1 | 1
+| `hideleg`.LAMBI | NA | NA | NA | 1 | 1 | 0
+| `mstrcctl`.M | 0 | 0 | 0 | 0 | 0 | 0
+| `mstrcctl`.S | 0 | 1 | 1 | 0 | 0 | 1
+| `mstrcctl`.U | 0 | 0 | 1 | 0 | 0 | 1
+| `vsstrcctl`.S | NA | NA | NA | 1 | 1 | 1
+| `vsstrcctl`.U | NA | NA | NA | 1 | 1 | 1
+|===
+
+The "Application", "OS", and "Application(s) + OS" scenarios assume a bare-metal (V=0) configuration where only a user-mode application, the operating system, or some combination of the two, respectively, are traced.  The remaining scenarios assume a virtualized environment.  The "Guest" column assumes that a virtualization guest is accessing self-hosted trace directly.  The "Guest (emulated)" column assumes that the hypervisor is emulating guest access to self-hosted trace state, either via trap-and-emulate or via hypercall.  And finally, the "Guest(s) + Hypervisor" column assumes a hypervisor that is tracing both itself and one or more guests.
+
+All selected scenarios involve delegation of self-hosted trace (`mstateen0`.STRC) and LAMBI interrupts (`mideleg`.LAMBI) to S-mode, to allow the kernel/hypervisor control of the capability.  Only in scenarios where a guest is accessing self-hosted trace state directly is self-hosted trace further delegated to VS-mode (`hstateen0`.STRC).  And only in scenarios where the effective privilege mode of trace writes is VS-mode are LAMBIs further delegated to VS-mode (`hideleg`.LAMBI), to allow the guest to service VS-stage translation faults and buffer management interrupts.
+
+When tracing only while V=0, S-mode is chosen as the effective privilege mode of trace writes (`menvcfg`.STRCS and `henvcfg`.STRCV).  This allows the AMB to reside in kernel address space.  See <<ambaddr>> for configuration details.  When a virtualization guest is tracing ("Guest" column), or a hypervisor is emulating self-hosted trace on behalf of a guest ("Guest (emulated)" column) but allowing the guest to manage the AMB, VS-mode is chosen as the effective privilege mode of trace writes.  This allows the AMB to reside in guest address space.  And finally, when a hypervisor is tracing itself + guest(s) ("Guest(s) + Hypervisor" column), S-mode is chosen as the effective privilege mode of trace writes, allowing the AMB to reside in hypervisor address space.
+
+NOTE: _A hypervisor might prefer a different configuration for the "Guest (emulated)" scenario.  One alternative would be for the AMB to be managed entirely by the hypervisor, and hence reside in hypervisor address space.  Such a configuration would choose S-mode as the effective privilege mode for trace writes, and would not further delegate LAMBIs to VS-mode._
+
+The privilege mode filtering configurations chosen above simply reflect the modes in which each scenario chooses to trace.  There are many other configuration options within self-hosted trace, but they are orthogonal to these scenarios.
+
+
+
+

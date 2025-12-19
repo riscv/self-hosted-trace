@@ -32,15 +32,15 @@ Optionally, if RV32 is supported, bits 63:32 of `sambcs` can be accessed via the
 ....
 {reg: [
     {bits: 1, name: 'EN'},
-    {bits: 5, name: 'SIZE'},
-    {bits: 3, name: 'WPRI', type: 1},
-    {bits: 2, name: 'BMITH'},
-    {bits: 1, name: 'BMIEN'},
-    {bits: 20, name: 'TFPTR'},
-    {bits: 1, name: 'SOF'},
-    {bits: 26, name: 'WPRI', type: 1},
     {bits: 1, name: 'TF'},
     {bits: 1, name: 'BMI'},
+    {bits: 4, name: 'WPRI', type: 1},
+    {bits: 5, name: 'SIZE'},
+    {bits: 20, name: 'TFPTR'},
+    {bits: 2, name: 'BMITH'},
+    {bits: 1, name: 'BMIEN'},
+    {bits: 1, name: 'SOF'},
+    {bits: 25, name: 'WPRI', type: 1},
     {bits: 1, name: 'WRAP'},
     {bits: 1, name: 'EMPTY'},
     {bits: 1, name: 'TRV'},
@@ -49,17 +49,7 @@ Optionally, if RV32 is supported, bits 63:32 of `sambcs` can be accessed via the
 
 When EN=1, the AMB is enabled to receive asynchronous data from source(s).  Once enabled, the AMB may translate buffer page(s), which can result in translation faults and/or guest-page faults, and cache those translations.  See <<ambaddr>> for address translation details, and see <<ambendis>> for details on enabling and disabling AMB.
 
-The buffer size is 2^SIZE+12^, supporting sizes from 4 KB (SIZE=0) to 4 GB (SIZE=20).  SIZE is a WARL field with values 21..31 reserved.  An AMB instance may implement only a subset of supported SIZE values.  The maximum implemented size can be discovered by writing all 1s to SIZE and reading back the resulting value.  All sizes between the minimum (4 KB) and the maximum implemented size are implemented.
-
-WARNING: _The largest AUX buffer size allowed by Linux perf for self-hosted trace from other architectures is 4 MiB, but those require pinned memory._
-
-Software should only write to `sambcs` while any associated asynchronous data sources are disabled and `sambcs`.EMPTY=1, to avoid race conditions with hardware updates while AMB writes are in flight.  AMB behavior is UNSPECIFIED otherwise.
-
-Similarly, status bits (TF, BMI, WRAP, EMPTY, TRV) should be considered volatile while asynchronous data is incoming.  To stabilize the values of status bits, follow the same guidance above to ensure that asychronous data is no longer incoming.
-
-The BMIEN bit enables buffer management interrupts.  When BMIEN=1, a local asynchronous memory buffer interrupt (LAMBI) is pended when hardware increment of `sambaddr` causes the two most significant bits of the write pointer offset portion to transition to match BMITH.  For example, if BMIEN=1 and BMITH=2, a LAMBI will be pended when the buffer is half full.
-
-The TF and BMI bits report the cause of a pended LAMBI.  When BMI=1, a buffer management interrupt was pended.  When TF=1, a buffer translation fault occurred.  See <<ambaddr>> for address translation details.  Hardware sets these fields when the LAMBI is pended.  Software should clear TF and BMI once the associated LAMBI has been serviced.
+The TF and BMI bits report the cause of a pended local asynchronous memory buffer interrupt (LAMBI).  When BMI=1, a buffer management interrupt was pended.  When TF=1, a buffer translation fault occurred.  See <<ambaddr>> for address translation details.  Hardware sets these fields when the LAMBI is pended.  Software should clear TF and BMI once the associated LAMBI has been serviced.  See <<lambi-handling>> for more on servicing LAMBIs.
 
 When a buffer translation fault occurs, the buffer offset associated with the offending page is written to TFPTR, such that the full virtual address of the page base can be derived by combining the base address portion of `sambaddr` with the offset value as shown below.
 
@@ -67,13 +57,23 @@ FaultAddress = (`sambaddr` & (2^`sambcs`.SIZE+12^ - 1)) | (`sambcs`.TFPTR<<12)
 
 NOTE: _Because implementations may pre-translate AMB pages (see <<ambaddr>>), translation faults can occur both for the current page (indicated by the address in `sambaddr`) and for following pages that have not yet been written.  Thus the address in `sambaddr` may not reflect the page that incurred the AMB translation fault.  TFPTR provides the means to report a fault to a different page within the AMB._
 
+The buffer size is 2^SIZE+12^, supporting sizes from 4 KB (SIZE=0) to 4 GB (SIZE=20).  SIZE is a WARL field with values 21..31 reserved.  An AMB instance may implement only a subset of supported SIZE values.  The maximum implemented size can be discovered by writing all 1s to SIZE and reading back the resulting value.  All sizes between the minimum (4 KB) and the maximum implemented size are implemented.
+
+WARNING: _The largest AUX buffer size allowed by Linux perf for self-hosted trace from other architectures is 4 MiB, but those require pinned memory._
+
+The BMIEN bit enables buffer management interrupts.  When BMIEN=1, a LAMBI is pended when a hardware increment of `sambaddr` causes the two most significant bits of the write pointer offset portion to transition to match BMITH.  For example, if BMIEN=1 and BMITH=2, a LAMBI will be pended when the buffer is half full.
+
 The EMPTY bit is a read-only indication to software that all internally buffered asynchronous data has been flushed and is visible to software reads.
 
 NOTE: _EMPTY should factor in any empty indication from the associated data source(s), such that EMPTY is set only when all enabled data sources are empty._
 
-The WRAP bit indicates that the buffer has wrapped at least once, and hence the data above the write pointer is valid.  If SOF (Stop-on-full) is set, any asynchronous data received after the buffer fills (and WRAP=1) is dropped.  In this case (SOF=1 and WRAP=1), `sambaddr` will hold the address of the base of the buffer.
+The WRAP bit indicates that the buffer has wrapped at least once, and hence the data above the write pointer is valid.  If SOF (Stop-on-full) is set, any asynchronous data received after the buffer fills (WRAP=1) is dropped.  In this case (SOF=1 and WRAP=1), `sambaddr` will hold the address of the base of the buffer.
 
 The TRV bit is a read-only indication to software that the hardware has successfully translated the buffer current page, and optionally one or more following pages.  See <<ambendis>> for more details. 
+
+Software should only write to `sambcs` while any associated asynchronous data sources are disabled and `sambcs`.EMPTY=1, to avoid race conditions with hardware updates while AMB writes are in flight.  AMB behavior is UNSPECIFIED otherwise.
+
+Similarly, status bits (TF, BMI, WRAP, EMPTY, TRV) should be considered volatile while asynchronous data is incoming.  To stabilize the values of status bits, follow the same guidance above to ensure that asychronous data is no longer incoming.
 
 ==== Supervisor Asynchronous Memory Buffer Address Register (`sambaddr`)
 
@@ -182,6 +182,7 @@ Implementations should endeavor to minimize recoverable data loss, while unrecov
 ** If AMB is disabled while such a guest-page fault is pending, the pending fault can be dropped.  The condition will be re-discovered if/when AMB is re-enabled with the same configuration.
 ** If AMB writes are configured with VS-mode privilege, it is expected that the data source will be configured to inhibit asynchronous data generation when V=0.  However, buffered data may still be emitted while V=0.  The guidelines above ensure that no trap is required to complete a buffer flush, hence deferring the guest-page fault in such cases does not risk data loss.
 
+[[lambi-handling]]
 [appendix]
 === Handling Local Asynchronous Memory Buffer Interrupts
 

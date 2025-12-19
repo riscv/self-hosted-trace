@@ -1,5 +1,11 @@
 == Self-hosted Trace ISA Extension (Smstrce1p0/Ssstrce1p0 and Smstrcn1p0/Ssstrcn1p0)
 
+Self-hosted trace describes the use of hardware trace capabilities by software running on the target.  The Smstrc* extensions provide an ISA interface to the RISC-V trace encoder.  'Sm' and 'Ss' imply M-mode and S-mode extension, respectively, while 'strc' refers to self-hosted trace.  The following 'e' vs 'n' selects the encoding standard; 'e' implies standard defined in the Efficient Trace for RISC-V v2.0 specification, while 'n' implies the standard defined in the RISC-V N-trace v1.0 specification.  Finally, '1p0' implies self-hosted trace version 1.0 for each encoding scheme.
+
+Smstrc*/Ssstrc* utilize an asynchronous memory buffer (AMB) as the trace sink.  AMB is defined by the Ssamb extension, upon which Smstrc*/Ssstrc* depend.
+
+The machine-level extensions, Smstrc*, encompasses all newly added Control Status Registers (CSRs), instructions, and behavior modifications for a hart across all privilege levels. The corresponding supervisor-level extensions, Ssstrc*, are essentially identical to the corresponding Smstrc* extension, except that it excludes machine-level CSRs and behaviors not intended to be directly accessible at the supervisor level.
+
 [[strccsrs]]
 === CSRs
 

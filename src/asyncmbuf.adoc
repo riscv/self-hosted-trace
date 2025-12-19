@@ -55,7 +55,7 @@ When a buffer translation fault occurs, the buffer offset associated with the of
 
 FaultAddress = (`sambaddr` & (2^`sambcs`.SIZE+12^ - 1)) | (`sambcs`.TFPTR<<12)
 
-NOTE: _Because implementations may pre-translate AMB pages (see <<ambaddr>>), translation faults can occur both for the current page (indicated by the address in `sambaddr`) and for following pages that have not yet been written.  Thus the address in `sambaddr` may not reflect the page that incurred the AMB translation fault.  TFPTR provides the means to report a fault to a different page within the AMB._
+NOTE: _Because of pre-translation of AMB pages (see <<ambpretrans>>), translation faults can occur both for the current page (indicated by the address in `sambaddr`) and for following pages that have not yet been written.  Thus the address in `sambaddr` may not reflect the page that incurred the AMB translation fault.  TFPTR provides the means to report a fault to a different page within the AMB._
 
 The buffer size is 2^SIZE+12^, supporting sizes from 4 KB (SIZE=0) to 4 GB (SIZE=20).  SIZE is a WARL field with values 21..31 reserved.  An AMB instance may implement only a subset of supported SIZE values.  The maximum implemented size can be discovered by writing all 1s to SIZE and reading back the resulting value.  All sizes between the minimum (4 KB) and the maximum implemented size are implemented.
 

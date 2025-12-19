@@ -239,7 +239,7 @@ indicates that there is no jump target cache implemented.
 |_ctype_width_p_ | 2 (precise) |  Width of the *ctype* bus.
 |_context_width_p_ | 64 bits |  Width of *context* bus.
 |_time_width_p_ | Implementation-defined |  Width of *time* bus
-|_ecause_width_p_ | 7 (Interrupt bit + 0..63 cause values) |  Width of *exception cause* bus
+|_ecause_width_p_ | 6 (0..63 cause values) |  Width of *exception cause* bus
 |_ecause_choice_p_ | Implementation-defined |  Number of bits of exception cause to match using
 multiple choice
 |_f0s_width_p_ | Implementation-defined |  Width of the *subformat* field in format 0 _te_inst_ packets.

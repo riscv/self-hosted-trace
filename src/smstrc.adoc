@@ -90,8 +90,6 @@ NOTE: _Most of the fields listed above correspond to equivalent fields in the `t
 
 NOTE: _The RISC-V Trace Control Interface Specification defines a trTeDisSelfHosted bit, which allows an external debugger to reserve the trace encoder for its own use by causing the hart to behave as though Smstrc*/Ssstrc* are not implemented.  For this reason, it is advised that illegal instruction exceptions raised by writes to `__x__strcctl` do not result in kernel panic, but rather report that trace is not available._
 
-WARNING: _Etrace spec says trTeInstMode is hardcoded to 7?  TCI spec says E-trace and N-trace are 6.  E-trace also says ImplicitReturnMode=0, not supported?  And E-trace has trTeContext=0, though it always reports context when implemented.  Issue filed: https://github.com/riscv-non-isa/riscv-trace-spec/issues/240_
-
 ==== Machine Environment Configuration Register (`menvcfg`)
 
 Bit 58 is STRCS.  When set, self-hosted trace is configured for use by supervisor software.  STRCS is used to select the trace write privilege and translation mechanism used by AMB, see <<ambaddr>>.
@@ -222,15 +220,13 @@ NOTE: _Including a synchronization sequence every 4 KiB ensures that, for all NA
 
 The table below replicates the list of trace encoder parameters from the Efficient Trace for RISC-V v2.0 Specification, including the allowed values for use with Smstrce*/Ssstrce*.  
 
-WARNING: _Probably need to distinguish between variable parameters that STRC cares about and those it doesn't._
-
 .E-trace Encoder Parameters
 [cols="20%,30%,50%",align="center",float="center",options="header"]
 |===
 | *Parameter name* | Allowed Value(s) | *Description*
 |_arch_p_ | 0 |  The architecture specification version with which the
 encoder is compliant (0 for initial version).
-|_blocks_p_ | Any |  Number of times *iretire*, *itype* etc. are replicated
+|_blocks_p_ | Implementation-defined |  Number of times *iretire*, *itype* etc. are replicated
 |_bpred_size_p_ | Implementation-defined |  Number of entries in the branch predictor is
 2^*bpred_size_p*^. Minimum number of entries is 2, so a value of 0
 indicates that there is no branch predictor implemented.
@@ -244,36 +240,36 @@ indicates that there is no jump target cache implemented.
 |_context_width_p_ | 64 bits |  Width of *context* bus.
 |_time_width_p_ | Implementation-defined |  Width of *time* bus
 |_ecause_width_p_ | 7 (Interrupt bit + 0..63 cause values) |  Width of *exception cause* bus
-|_ecause_choice_p_ | Any |  Number of bits of exception cause to match using
+|_ecause_choice_p_ | Implementation-defined |  Number of bits of exception cause to match using
 multiple choice
 |_f0s_width_p_ | Implementation-defined |  Width of the *subformat* field in format 0 _te_inst_ packets.
-|_filter_context_p_ | Any | Filtering on context supported when 1
-|_filter_time_p_ | Any | Filtering on time supported when 1
-|_filter_excint_p_ | Any |  Filtering on exception cause or interrupt
+|_filter_context_p_ | Implementation-defined | Filtering on context supported when 1
+|_filter_time_p_ | Implementation-defined | Filtering on time supported when 1
+|_filter_excint_p_ | Implementation-defined |  Filtering on exception cause or interrupt
 supported when non_zero. Number of nested exceptions supported is
 2^filter_excint_p^
 |_filter_privilege_p_ | 1 | Filtering on privilege supported when
 1
-|_filter_tval_p_ | Any | Filtering on trap value supported when 1
+|_filter_tval_p_ | Implementation-defined | Filtering on trap value supported when 1
 (provided _filter_excint_p_ is non-zero)
 |_iaddress_lsb_p_ | 1 |  LSB of instruction *address* bus to trace. 1 is
 compressed instructions are supported, 2 otherwise
 |_iaddress_width_p_ | MXLEN |  Width of instruction *address* bus. This is the
 same as _DXLEN_
-|_iretire_width_p_ | Any |  Width of the *iretire* bus
-|_ilastsize_width_p_ | Any |  Width of the *ilastsize* bus
-|_itype_width_p_ | Any |  Width of the *itype* bus
+|_iretire_width_p_ | Implementation-defined |  Width of the *iretire* bus
+|_ilastsize_width_p_ | Implementation-defined |  Width of the *ilastsize* bus
+|_itype_width_p_ | Implementation-defined |  Width of the *itype* bus
 |_nocontext_p_ | 0 | Exclude context from _te_inst_ packets if 1
 |_notime_p_ | 0 | Exclude time from _te_inst_ packets if 1
 |_privilege_width_p_ | 3 |  Width of *privilege* bus
-|_retires_p_ | Any |  Maximum number of instructions that can be retired per
+|_retires_p_ | Implementation-defined |  Maximum number of instructions that can be retired per
 block
 |_return_stack_size_p_ | <=64 |  Number of entries in the return address stack
 is 2^*return_stack_size_p*^. Minimum number of entries is 2, so a value
 of 0 indicates that there is no implicit return stack implemented.
-|_sijump_p_ | Any | *sijump* is used to identify sequentially
+|_sijump_p_ | Implementation-defined | *sijump* is used to identify sequentially
 inferable jumps
-|_impdef_width_p_ | Any |  Width of *implementation-defined input* bus
+|_impdef_width_p_ | Implementation-defined |  Width of *implementation-defined input* bus
 |===
 
 ===== Required Support Packet
@@ -291,7 +287,7 @@ WARNING: _Iain will provide the E-trace extension that specifies the Support pac
 
 The self-hosted trace memory buffer (TMB) is an instance of the Asynchronous Memory Buffer, as defined by the Ssamb extension (see <<ssamb>>).  All optionality available within the Ssamb extension is available for the TMB.
 
-The TMB is configured using `sstrcambcs`, `sstrcambaddr`, `menvcfg`.STRCS, and `henvcfg`.STRCV.  See <<strccsr>> and <<ssamb>> for details.
+The TMB is configured using `sstrcambcs`, `sstrcambaddr`, `menvcfg`.STRCS, and `henvcfg`.STRCV.  See <<strccsrs>> and <<ssamb>> for details.
 
 === External Debug Interaction
 
@@ -324,12 +320,12 @@ Smstrc*/Ssstrc* is intended to leverage the existing E-trace and N-trace extensi
 | trTeControl.trTeInhibitSrc | 1 | Self-hosted trace is per-hart, so no SrcID is needed.
 | trTeControl.trTeInstSyncMode | `mstrcctl`.SMOD |
 | trTeControl.trTeInstSyncMax | `mstrcctl`.SMAX |
-| trTeControl.trTeFormat | 0 or 1 | Implicit in extension definition
+| trTeControl.trTeFormat | 0 or 1 | Implicit in extension definition: 0 for E-trace, 1 for N-trace
 | trTeImpl.trTeVerMajor | 1 |
 | trTeImpl.trTeVerMinor | 0 |
-| trTeImpl.trTeCompType | 1? | _What is this?_
-| trTeImpl.trTeProtocolMajor | 1? |
-| trTeImpl.trTeProtocolMinor | 0? |
+| trTeImpl.trTeCompType | 1 | 
+| trTeImpl.trTeProtocolMajor | 0 or 1 | Implicit in extension definition: 0 for E-trace v2.0, 1 for N-trace v1.0
+| trTeImpl.trTeProtocolMinor | 0 |
 | trTeInstFeatures.trTeInstNoAddrDiff| 0 |
 | trTeInstFeatures.trTeInstNoTrapAddr| `mstrcctl`.NTA |
 | trTeInstFeatures.trTeInstEnSequentialJump| `mstrcctl`.ESJ |
@@ -385,6 +381,8 @@ NOTE: _The TECI is often implemented as an MMIO interface.  Implementations shou
 
 This section describes likely self-hosted trace configurations for select scenarios in a typical "rich OS" environment.  Note that this list is far from comprehensive, and there are scenarios where many more combinations of the bits below may be appropriate.
 
+.Self-hosted Trace Configuration Scenarios
+[options="header"]
 |===
 | Tracing | Application | OS | Application(s) + OS | Guest | Guest (emulated) | Guest(s) + Hypervisor
 | `mstateen0`.STRC | 1 | 1 | 1 | 1 | 1 | 1

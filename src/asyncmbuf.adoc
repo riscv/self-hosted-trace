@@ -102,7 +102,7 @@ LAMBI is bit 14 in all registers reference above.  The priority of LAMBIs lies i
 
 When enabling asynchronous data collection, software should first initialize `sambaddr`, then configure and enable AMB by writing `sambcs`.  For RV32, `sambcsh` should be initialized before AMB is enabled in `sambcs`.
 
-Once AMB is enabled (`sambcs`.EN=1), translation of the current AMB page (at `sambaddr`), and optionally one or more following page(s), will commence.  It is recommended that software wait until `sambcs`.TRV=1 before enabling enabling the asynchronous data source(s), to avoid loss of data while waiting for this translation process.  One or more translation faults and/or guest-page faults may have to be serviced before TRV=1.
+Once AMB is enabled (`sambcs`.EN=1), translation of the current AMB page (at `sambaddr`), and optionally one or more following page(s), will commence.  Software should wait until `sambcs`.TRV=1 before enabling enabling the asynchronous data source(s), to avoid loss of data while waiting for this translation process.  One or more translation faults and/or guest-page faults may have to be serviced before TRV=1.
 
 When disabling asynchronous data collection, software should first disable asynchronous data source(s), which will initiate a flush of any internally buffered data.  Software should then wait until AMB reports empty (`sambcs`.EMTPY=1), to ensure that data downstream from the source is not dropped.  After this AMB can be disabled by clearing `sambcs`.EN.
 

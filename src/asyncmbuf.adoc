@@ -202,7 +202,9 @@ For each `sambcs` register implemented:
 ** This step must be done before step 4, but could optionally follow step 3.
 3. Service the LAMBI cause(s).
 ** If `sambcs`.TF=1, call the appropriate routine to service the translation fault, then clear TF.  This routine may be shared with the page fault exception handler.
-** If `sambcs`.BMI=1, perform any buffer management tasks desired, including any modifications to the AMB configuration.  Then clear BMI.
+** If `sambcs`.BMI=1, perform any buffer management tasks desired, including any modifications to the AMB configuration.  When collecting asynchronous data in age order, account for buffer wrap as recommended below.  Then clear BMI.
+*** If `sambcs`.WRAP=1, software should begin collection at the address held in `sambaddr`, which holds the programmatically oldest data.  Collection should wrap at buffer end to offset 0, then continue to `sambaddr`-1, which holds the programmatically youngest data.
+*** If `sambcs`.WRAP=0, software should begin collection at the base of the AMB (offset 0), which holds the programmatically oldest data.  Collection should continue to `sambaddr`-1, which holds the programmatically youngest data.
 4. Re-enable any data sources disabled in step 1, following the guidance in <<ambendis>>.
 ** After this step asynchronous data generation resumes, which could result in a new LAMBI being pended.  Because `__x__status`.__x__IE=0 during handler execution, any new LAMBI will remain pending until the handler completes.
 ** The handler could opt to perform step 4 for each AMB instance after steps 1-3 are completed for all instances, if data generation during handler execution is not desired.

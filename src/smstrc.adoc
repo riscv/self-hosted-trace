@@ -161,6 +161,7 @@ The Smstrc*/Ssstrc* extensions impose the following requirements on the implemen
 * When timestamp reporting is enabled (`mstrcctl`.TSEN=1), timestamps follow the requirements described in <<trtime>>.
 * When context reporting is enabled (`mstrcctl`.CEN=1), the context value matches that described in <<trcontext>>.
 * Smstrcev1p0/Ssstrcev1p0 implementations will include trace encapsulation as described in <<trcencap>>, and parameter values as defined in <<trcparam>>.
+* When implicit returns are enabled (`mstrcctl`.EIR=1), the trace encoder must guarantee that only well-behaved returns are implicit; the decoder should never be redirected to the wrong return target.  This preempts use of the call depth counter scheme described in section 3.2.5 of the Efficient Trace for RISC-V Specification v2.0.  The maximum return stack size is 64 entries.
 
 [[trtime]]
 ==== Timestamping
@@ -233,7 +234,7 @@ indicates that there is no branch predictor implemented.
 |_cache_size_p_ | Implementation-defined |  Number of entries in the jump target cache is
 2^*cache_size_p*^. Minimum number of entries is 2, so a value of 0.
 indicates that there is no jump target cache implemented.
-|_call_counter_size_p_ | <=64 |  Number of bits in the nested call counter is
+|_call_counter_size_p_ | 0 |  Number of bits in the nested call counter is
 2^*call_counter_size_p*^. Minimum number of entries is 2, so a value of
 0 indicates that there is no implicit return call counter implemented.
 |_ctype_width_p_ | 2 (precise) |  Width of the *ctype* bus.
@@ -264,7 +265,7 @@ same as _DXLEN_
 |_privilege_width_p_ | 3 |  Width of *privilege* bus
 |_retires_p_ | Implementation-defined |  Maximum number of instructions that can be retired per
 block
-|_return_stack_size_p_ | <=64 |  Number of entries in the return address stack
+|_return_stack_size_p_ | <=6 |  Number of entries in the return address stack
 is 2^*return_stack_size_p*^. Minimum number of entries is 2, so a value
 of 0 indicates that there is no implicit return stack implemented.
 |_sijump_p_ | Implementation-defined | *sijump* is used to identify sequentially

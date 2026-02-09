@@ -1,5 +1,11 @@
 == Self-hosted Trace ISA Extension (Smstrce1p0/Ssstrce1p0 and Smstrcn1p0/Ssstrcn1p0)
 
+Self-hosted trace describes the use of hardware trace capabilities by software running on the target.  The Smstrc* extensions provide an ISA interface to the RISC-V trace encoder.  'Sm' and 'Ss' imply M-mode and S-mode extensions, respectively, while 'strc' refers to self-hosted trace.  The following 'e' vs 'n' selects the encoding standard; 'e' implies the standard defined in the Efficient Trace for RISC-V v2.0 specification, while 'n' implies the standard defined in the RISC-V N-trace v1.0 specification.  Finally, '1p0' implies self-hosted trace version 1.0 for each encoding scheme.
+
+Smstrc*/Ssstrc* utilize an asynchronous memory buffer (AMB) as the trace sink.  AMB is defined by the Ssamb extension, upon which Smstrc*/Ssstrc* depend.
+
+The machine-level extensions, Smstrc*, encompasses all newly added Control Status Registers (CSRs), instructions, and behavior modifications for a hart across all privilege levels. The corresponding supervisor-level extensions, Ssstrc*, are essentially identical to the corresponding Smstrc* extension, except that it excludes machine-level CSRs and behaviors not intended to be directly accessible at the supervisor level.
+
 [[strccsrs]]
 === CSRs
 
@@ -80,9 +86,9 @@ Once the count of events selected by SMOD reaches the threshold specified by SMA
 
 The EN, EMPTY, IT, CEN, STOF, SMOD, SMAX, TSEN, U, S, and M fields are required, while others are optional.  Unimplemented fields must be hardcoded to 0.
 
-NOTE: _The RISC-V Trace Control Interface Specification defines a trTeDisSelfHosted bit, which allows an external debugger to reserve the trace encoder for its own use by causing the hart to behave as though Smstrc*/Ssstrc* are not implemented.  For this reason, it is advised that illegal instruction exceptions raised by writes to `__x__strcctl` do not result in kernel panic, but rather report that trace is not available._
+NOTE: _Most of the fields listed above correspond to equivalent fields in the `trTeControl` and `trTeInstFeatures` registers from the RISC-V Trace Control Interface Specification.  See <<strctci>> for details on self-hosted trace ramifications on the Trace Control Interface._
 
-WARNING: _Etrace spec says trTeInstMode is hardcoded to 7?  TCI spec says E-trace and N-trace are 6.  E-trace also says ImplicitReturnMode=0, not supported?  And E-trace has trTeContext=0, though it always reports context when implemented.  Issue filed: https://github.com/riscv-non-isa/riscv-trace-spec/issues/240_
+NOTE: _The RISC-V Trace Control Interface Specification defines a trTeDisSelfHosted bit, which allows an external debugger to reserve the trace encoder for its own use by causing the hart to behave as though Smstrc*/Ssstrc* are not implemented.  For this reason, it is advised that illegal instruction exceptions raised by writes to `__x__strcctl` do not result in kernel panic, but rather report that trace is not available._
 
 ==== Machine Environment Configuration Register (`menvcfg`)
 
@@ -96,11 +102,11 @@ The `sstrcctl` register provides supervisor mode access to a subset of `mstrcctl
 
 ==== Supervisor Self-hosted Trace Control and Status (`sstrcambcs`)
 
-The `sstrcambcs` register is the Self-hosted trace instatiation of the `sambcs` register defined by the Ssamb extension, see <<ssamb>>.  See <<strcmem>> for Self-hosted trace memory buffer details.
+The `sstrcambcs` register is the Self-hosted trace instantiation of the `sambcs` register defined by the Ssamb extension, see <<ssamb>>.  See <<strcmem>> for Self-hosted trace memory buffer details.
 
 ==== Supervisor Self-hosted Trace AMB Address (`sstrcambaddr`)
 
-The `sstrcambaddr` register is the Self-hosted trace instatiation of the `sambaddr` register defined in the Ssamb specification, see <<ssamb>>.  See <<strcmem>> for Self-hosted trace Memory Buffer details.
+The `sstrcambaddr` register is the Self-hosted trace instantiation of the `sambaddr` register defined in the Ssamb specification, see <<ssamb>>.  See <<strcmem>> for Self-hosted trace Memory Buffer details.
 
 ==== Supervisor Context Register (`scontext`)
 
@@ -174,7 +180,7 @@ For a packet that reports the results of multiple control transfer instructions,
 [[trcontext]]
 ==== Trace Context
 
-When context reporting is enabled (`mstrcctl`.CEN=1), the context value reported is as shown below.
+When context reporting is enabled (`mstrcctl`.CEN=1), the combination of `hcontext` and `scontext` must be reported.  For N-trace, these are reported in separate messages/packets.  For E-trace, a single context value is reported, using the format given below.
 
 .Trace context value
 [wavedrom, , svg]
@@ -187,7 +193,7 @@ When context reporting is enabled (`mstrcctl`.CEN=1), the context value reported
 
 [NOTE]
 ====
-_`__x__context` was chosen as the source of context because it allows capturing the full PID/TID for both the (guest) kernel and the hypervisor.  This avoids the complexity associated with processing traces from other architectures, which require software "sideband" trace that logs timestamped context switches.  This sideband trace is synchronized with the hardware trace using timestamps in order to separate the reconstructed execution trace per thread.  By recording the unique PID/TID info in the trace, both trace overhead and trace processing complexity are reduced._ 
+_`__x__context` was chosen as the source of context because it allows capturing the full PID/TID for both the (guest) kernel and the hypervisor.  This avoids the complexity associated with processing traces from other architectures, which require software "sideband" trace that logs timestamped context switches.  This sideband trace is synchronized with the hardware trace using timestamps in order to separate the reconstructed execution trace per thread.  By recording the unique PID/TID info in the trace, both trace overhead and trace processing complexity are reduced._
 
 _Neither `scontext` nor `hcontext` are populated by standard kernels, so a trace driver will need to update them on context switch._
 ====
@@ -212,9 +218,7 @@ NOTE: _Including a synchronization sequence every 4 KiB ensures that, for all NA
 [[trcparam]]
 ==== E-trace Parameters
 
-The table below replicates the list of trace encoder parameters from the Efficient Trace for RISC-V v2.0 Specification, including the allowed values for use with Smstrce*/Ssstrce*.  
-
-WARNING: _Probably need to distinguish between variable parameters that STRC cares about and those it doesn't._
+The table below replicates the list of trace encoder parameters from the Efficient Trace for RISC-V v2.0 Specification, including the allowed values for use with Smstrce*/Ssstrce*.
 
 .E-trace Encoder Parameters
 [cols="20%,30%,50%",align="center",float="center",options="header"]
@@ -222,7 +226,7 @@ WARNING: _Probably need to distinguish between variable parameters that STRC car
 | *Parameter name* | Allowed Value(s) | *Description*
 |_arch_p_ | 0 |  The architecture specification version with which the
 encoder is compliant (0 for initial version).
-|_blocks_p_ | Any |  Number of times *iretire*, *itype* etc. are replicated
+|_blocks_p_ | Implementation-defined |  Number of times *iretire*, *itype* etc. are replicated
 |_bpred_size_p_ | Implementation-defined |  Number of entries in the branch predictor is
 2^*bpred_size_p*^. Minimum number of entries is 2, so a value of 0
 indicates that there is no branch predictor implemented.
@@ -235,46 +239,46 @@ indicates that there is no jump target cache implemented.
 |_ctype_width_p_ | 2 (precise) |  Width of the *ctype* bus.
 |_context_width_p_ | 64 bits |  Width of *context* bus.
 |_time_width_p_ | Implementation-defined |  Width of *time* bus
-|_ecause_width_p_ | 7 (Interrupt bit + 0..63 cause values) |  Width of *exception cause* bus
-|_ecause_choice_p_ | Any |  Number of bits of exception cause to match using
+|_ecause_width_p_ | 6 (0..63 cause values) |  Width of *exception cause* bus
+|_ecause_choice_p_ | Implementation-defined |  Number of bits of exception cause to match using
 multiple choice
-|_f0s_width_p_ | 1, or 2 if want room for growth? |  Width of the *subformat* field in format 0 _te_inst_ packets.
-|_filter_context_p_ | Any | Filtering on context supported when 1
-|_filter_time_p_ | Any | Filtering on time supported when 1
-|_filter_excint_p_ | Any |  Filtering on exception cause or interrupt
+|_f0s_width_p_ | Implementation-defined |  Width of the *subformat* field in format 0 _te_inst_ packets.
+|_filter_context_p_ | Implementation-defined | Filtering on context supported when 1
+|_filter_time_p_ | Implementation-defined | Filtering on time supported when 1
+|_filter_excint_p_ | Implementation-defined |  Filtering on exception cause or interrupt
 supported when non_zero. Number of nested exceptions supported is
 2^filter_excint_p^
 |_filter_privilege_p_ | 1 | Filtering on privilege supported when
 1
-|_filter_tval_p_ | Any | Filtering on trap value supported when 1
+|_filter_tval_p_ | Implementation-defined | Filtering on trap value supported when 1
 (provided _filter_excint_p_ is non-zero)
 |_iaddress_lsb_p_ | 1 |  LSB of instruction *address* bus to trace. 1 is
 compressed instructions are supported, 2 otherwise
 |_iaddress_width_p_ | MXLEN |  Width of instruction *address* bus. This is the
 same as _DXLEN_
-|_iretire_width_p_ | Any |  Width of the *iretire* bus
-|_ilastsize_width_p_ | Any |  Width of the *ilastsize* bus
-|_itype_width_p_ | Any |  Width of the *itype* bus
+|_iretire_width_p_ | Implementation-defined |  Width of the *iretire* bus
+|_ilastsize_width_p_ | Implementation-defined |  Width of the *ilastsize* bus
+|_itype_width_p_ | Implementation-defined |  Width of the *itype* bus
 |_nocontext_p_ | 0 | Exclude context from _te_inst_ packets if 1
 |_notime_p_ | 0 | Exclude time from _te_inst_ packets if 1
 |_privilege_width_p_ | 3 |  Width of *privilege* bus
-|_retires_p_ | Any |  Maximum number of instructions that can be retired per
+|_retires_p_ | Implementation-defined |  Maximum number of instructions that can be retired per
 block
 |_return_stack_size_p_ | <=64 |  Number of entries in the return address stack
 is 2^*return_stack_size_p*^. Minimum number of entries is 2, so a value
 of 0 indicates that there is no implicit return stack implemented.
-|_sijump_p_ | Any | *sijump* is used to identify sequentially
+|_sijump_p_ | Implementation-defined | *sijump* is used to identify sequentially
 inferable jumps
-|_impdef_width_p_ | Any |  Width of *implementation-defined input* bus
+|_impdef_width_p_ | Implementation-defined |  Width of *implementation-defined input* bus
 |===
 
 ===== Required Support Packet
 
-There are 3 parameters whose values may vary across Smstrce*/Ssstrce* implementations, and whose values must be known by the decoder: _time_width_p_, _cache_size_p_, and _brpred_size_p_.  In order to provide these values in a standard manner, E-trace extension _TBD_ is required by Smstrce*/Ssstrce*.  This extension requires support for a standard Support packet (format 3 subformat 3, see chapter 7.5 of the Efficient Trace for RISC-V v2.0 Specification), which reports parameter values.
+There are 4 parameters whose values may vary across Smstrce*/Ssstrce* implementations, and whose values must be known by the decoder: _time_width_p_, _cache_size_p_, _brpred_size_p_, and _f0s_width_p.  In order to provide these values in a standard manner, E-trace extension _TBD_ is required by Smstrce*/Ssstrce*.  This extension requires support for a standard Support packet (format 3 subformat 3, see chapter 7.5 of the Efficient Trace for RISC-V v2.0 Specification), which reports parameter values.
 
-NOTE: _Support packets are not provided with every Sync packet, but are provided on trace start and trace end.  For a circular buffer usage, the trace start packet may be overwritten but the trace end packet should always be available.  The decoder will need to read the end of the buffer first, to get parameter values from the Support packet there, before searching for the first Sync packet from which to begin trace processing._ 
+NOTE: _Support packets are not provided with every Sync packet, but are provided on trace start and trace end.  For a circular buffer usage, the trace start packet may be overwritten but the trace end packet should always be available.  The decoder will need to read the end of the buffer first, to get parameter values from the Support packet there, before searching for the first Sync packet from which to begin trace processing._
 
-NOTE: _Providing parameters in the trace ensures that a decoder can decode a trace that was live migrated across implementations with differing parameter values._
+NOTE: _Providing parameters in the trace ensures that a decoder can decode a trace that was live-migrated across implementations with differing parameter values._
 
 WARNING: _Iain will provide the E-trace extension that specifies the Support packet format._
 
@@ -283,7 +287,7 @@ WARNING: _Iain will provide the E-trace extension that specifies the Support pac
 
 The self-hosted trace memory buffer (TMB) is an instance of the Asynchronous Memory Buffer, as defined by the Ssamb extension (see <<ssamb>>).  All optionality available within the Ssamb extension is available for the TMB.
 
-The TMB is configured using `sstrcambcs`, `sstrcambaddr`, `menvcfg`.STRCS, and `henvcfg`.STRCV.  See <<strccsr>> and <<ssamb>> for details.
+The TMB is configured using `sstrcambcs`, `sstrcambaddr`, `menvcfg`.STRCS, and `henvcfg`.STRCV.  See <<strccsrs>> and <<ssamb>> for details.
 
 === External Debug Interaction
 
@@ -293,6 +297,7 @@ Bit 10 of trTeControl is the trTeDisSelfHosted bit.  When set, the hart behaves 
 
 NOTE: _The trTeDisSelfHosted bit provides a means for an external debugger to reserve the TE for itself, by hiding the availability of self-hosted trace from software running on the hart.  If set from boot, it is reasonable to expect that software will never attempt to use self-hosted trace.  Otherwise the debugger may need to handle exceptions that result from software attempts to access self-hosted trace CSRs.  The debugger could use an etrigger to intercept the exceptions, at which point it could emulate the access or clear trTeDisSelfHosted and reexecute the write, among other options._
 
+[[strctci]]
 [appendix]
 === Interoperability with Trace Control Interface
 
@@ -307,7 +312,7 @@ Smstrc*/Ssstrc* is intended to leverage the existing E-trace and N-trace extensi
 | trTeControl.trTeInstTracing | `mstrcctl`.ITEN |
 | trTeControl.trTeEmpty | `mstrcctl`.EMPTY |
 | trTeControl.trTeInstMode | 6 | This indicates "Optimized Instruction Trace," the only ratified option.
-| trTeControl.trTeContext | `mstrcctl`.CEN | 
+| trTeControl.trTeContext | `mstrcctl`.CEN |
 | trTeControl.trTeDisSelfHosted | 0 |
 | trTeControl.trTeInstTrigEnable | `mstrcctl`.ITEN |
 | trTeControl.trTeInstStallOrOverflow | `mstrcctl`.STOF |
@@ -315,12 +320,12 @@ Smstrc*/Ssstrc* is intended to leverage the existing E-trace and N-trace extensi
 | trTeControl.trTeInhibitSrc | 1 | Self-hosted trace is per-hart, so no SrcID is needed.
 | trTeControl.trTeInstSyncMode | `mstrcctl`.SMOD |
 | trTeControl.trTeInstSyncMax | `mstrcctl`.SMAX |
-| trTeControl.trTeFormat | 0 or 1 | Implicit in extension definition
+| trTeControl.trTeFormat | 0 or 1 | Implicit in extension definition: 0 for E-trace, 1 for N-trace
 | trTeImpl.trTeVerMajor | 1 |
 | trTeImpl.trTeVerMinor | 0 |
-| trTeImpl.trTeCompType | 1? | _What is this?_
-| trTeImpl.trTeProtocolMajor | 1? |
-| trTeImpl.trTeProtocolMinor | 0? |
+| trTeImpl.trTeCompType | 1 |
+| trTeImpl.trTeProtocolMajor | 0 or 1 | Implicit in extension definition: 0 for E-trace v2.0, 1 for N-trace v1.0
+| trTeImpl.trTeProtocolMinor | 0 |
 | trTeInstFeatures.trTeInstNoAddrDiff| 0 |
 | trTeInstFeatures.trTeInstNoTrapAddr| `mstrcctl`.NTA |
 | trTeInstFeatures.trTeInstEnSequentialJump| `mstrcctl`.ESJ |
@@ -358,7 +363,7 @@ Smstrc*/Ssstrc* is intended to leverage the existing E-trace and N-trace extensi
 | trTeFilter0Control.trTeFilterMatchImpdef | 0 |
 | trTeFilter0Control.trTeFilterMatchDtype | 0 |
 | trTeFilter0Control.trTeFilterMatchDsize | 0 |
-| trTeFilter0MatchInst.trTeFilterMatchChoicePrivilege | {0, 0, `vsstrcctl`.VS, `vsstrcctl`.VU, `mstrcctl`.M, 0, `mstrcctl`.S, `mstrcctl`.U} | This assumes an implementation of the hart-trace interface such that the privilege mode inputs align with the privilege mode encodings specified in the RISC-V Privileged ISA Specification.
+| trTeFilter0MatchInst.trTeFilterMatchChoicePrivilege | {0, `vsstrcctl`.VS, `vsstrcctl`.VU, 0, `mstrcctl`.M, 0, `mstrcctl`.S, `mstrcctl`.U} | Matches the _priv_ encoding defined in Table 8 of the Efficient Trace for RISC-V Specification v2.0.
 | trTeFilter0MatchInst.trTeFilterMatchValueInterrupt | 0 |
 | trTeFilter0MatchEcauseLow | 0 |
 | trTeFilter0MatchEcauseHigh | 0 |
@@ -366,7 +371,39 @@ Smstrc*/Ssstrc* is intended to leverage the existing E-trace and N-trace extensi
 | trTeFilter0MatchMaskImpdef | 0 |
 | trTeFilter0MatchData | 0 |
 | trTeFilter[1..7]* | 0 | This assumes filter 0 is used for privilege mode filtering.
-| trTeComp* | 0 | 
+| trTeComp* | 0 |
 |===
 
 NOTE: _The TECI is often implemented as an MMIO interface.  Implementations should ensure that only sufficently privileged entities, like an authenticated debugger, can access the TECI.  It should not be possible for the TECI for a given hart to be observed or written by a peer hart._
+
+[appendix]
+=== Configuration Scenarios
+
+This section describes likely self-hosted trace configurations for select scenarios in a typical "rich OS" environment.  Note that this list is far from comprehensive, and there are scenarios where many more combinations of the bits below may be appropriate.
+
+.Self-hosted Trace Configuration Scenarios
+[options="header"]
+|===
+| Tracing | Application | OS | Application(s) + OS | Guest | Guest (emulated) | Guest(s) + Hypervisor
+| `mstateen0`.STRC | 1 | 1 | 1 | 1 | 1 | 1
+| `hstateen0`.STRC | NA | NA | NA | 1 | 0 | 0
+| `menvcfg`.STRCS | 1 | 1 | 1 | 1 | 1 | 1
+| `menvcfg`.STRCV | 0 | 0 | 0 | 1 | 1 | 0
+| `mideleg`.LAMBI | 1 | 1 | 1 | 1 | 1 | 1
+| `hideleg`.LAMBI | NA | NA | NA | 1 | 1 | 0
+| `mstrcctl`.M | 0 | 0 | 0 | 0 | 0 | 0
+| `mstrcctl`.S | 0 | 1 | 1 | 0 | 0 | 1
+| `mstrcctl`.U | 0 | 0 | 1 | 0 | 0 | 1
+| `vsstrcctl`.S | NA | NA | NA | 1 | 1 | 1
+| `vsstrcctl`.U | NA | NA | NA | 1 | 1 | 1
+|===
+
+The "Application", "OS", and "Application(s) + OS" scenarios assume a bare-metal (V=0) configuration where only a user-mode application, the operating system, or some combination of the two, respectively, are traced.  The remaining scenarios assume a virtualized environment.  The "Guest" column assumes that a virtualization guest is accessing self-hosted trace directly.  The "Guest (emulated)" column assumes that the hypervisor is emulating guest access to self-hosted trace state, either via trap-and-emulate or via hypercall.  And finally, the "Guest(s) + Hypervisor" column assumes a hypervisor that is tracing both itself and one or more guests.
+
+All selected scenarios involve delegation of self-hosted trace (`mstateen0`.STRC) and LAMBI interrupts (`mideleg`.LAMBI) to S-mode, to allow the kernel/hypervisor control of the capability.  Only in scenarios where a guest is accessing self-hosted trace state directly is self-hosted trace further delegated to VS-mode (`hstateen0`.STRC).  And only in scenarios where the effective privilege mode of trace writes is VS-mode are LAMBIs further delegated to VS-mode (`hideleg`.LAMBI), to allow the guest to service VS-stage translation faults and buffer management interrupts.
+
+When tracing only while V=0, S-mode is chosen as the effective privilege mode of trace writes (`menvcfg`.STRCS and `henvcfg`.STRCV).  This allows the AMB to reside in kernel address space.  See <<ambaddr>> for configuration details.  When a virtualization guest is tracing ("Guest" column), or a hypervisor is emulating self-hosted trace on behalf of a guest ("Guest (emulated)" column) but allowing the guest to manage the AMB, VS-mode is chosen as the effective privilege mode of trace writes.  This allows the AMB to reside in guest address space.  And finally, when a hypervisor is tracing itself + guest(s) ("Guest(s) + Hypervisor" column), S-mode is chosen as the effective privilege mode of trace writes, allowing the AMB to reside in hypervisor address space.
+
+NOTE: _A hypervisor might prefer a different configuration for the "Guest (emulated)" scenario.  One alternative would be for the AMB to be managed entirely by the hypervisor, and hence reside in hypervisor address space.  Such a configuration would choose S-mode as the effective privilege mode for trace writes, and would not further delegate LAMBIs to VS-mode._
+
+The privilege mode filtering configurations chosen above simply reflect the modes in which each scenario chooses to trace.  There are many other configuration options within self-hosted trace, but they are orthogonal to these scenarios.

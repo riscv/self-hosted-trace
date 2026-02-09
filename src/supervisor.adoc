@@ -1127,6 +1127,8 @@ ignored by current implementations. Furthermore, if
 ASIDLEN<ASIDMAX, the implementation shall ignore bits
 ASIDMAX-1:ASIDLEN of the value held in _rs2_.
 
+When invalidating asynchronous memory buffer (AMB) address-translation cache entries that may have been pre-translated (see <<ambpretrans>>), software must follow the guidance in <<ambendis>> to first disable AMB in order to avoid asynchronous data loss.  See <<ambtlb>>.
+
 An implicit read of the memory-management data structures may return any
 translation for an address that was valid at any time since the most
 recent SFENCE.VMA that subsumes that address. The ordering implied by

@@ -1381,6 +1381,8 @@ _rs1_=`x0` (and _rs2_ set to either `x0` or the VMID) must be executed
 to order subsequent guest translations with the MODE change—even if the
 old MODE or new MODE is Bare.
 
+When invalidating asynchronous memory buffer (AMB) address-translation cache entries that may have been pre-translated (see <<ambpretrans>>), software must follow the guidance in <<ambendis>> to first disable AMB in order to avoid asynchronous data loss.  See <<ambtlb>>.
+
 Attempts to execute HFENCE.VVMA or HFENCE.GVMA when V=1 cause a
 virtual-instruction exception, while attempts to do the same in U-mode cause an
 illegal-instruction exception. Attempting to execute HFENCE.GVMA in HS-mode
@@ -2453,7 +2455,7 @@ ignored.
 
 For guest-page faults, the trap instruction register is written with a
 special pseudoinstruction value if: (a) the fault is caused by an
-implicit memory access for VS-stage address translation, and (b) a
+implicit memory access for VS-stage address translation or asynchronous memory buffer (AMB), and (b) a
 nonzero value (the faulting guest physical address) is written to
 `mtval2` or `htval`. If both conditions are met, the value written to
 `mtinst` or `htinst` must be taken from

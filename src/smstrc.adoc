@@ -252,8 +252,8 @@ supported when non_zero. Number of nested exceptions supported is
 1
 |_filter_tval_p_ | Implementation-defined | Filtering on trap value supported when 1
 (provided _filter_excint_p_ is non-zero)
-|_iaddress_lsb_p_ | 1 |  LSB of instruction *address* bus to trace. 1 is
-compressed instructions are supported, 2 otherwise
+|_iaddress_lsb_p_ | 1 if C extension implemented |  LSB of instruction *address* bus to trace. 1 is
+compressed instructions are supported, 2 otherwise.
 |_iaddress_width_p_ | MXLEN |  Width of instruction *address* bus. This is the
 same as _DXLEN_
 |_iretire_width_p_ | Implementation-defined |  Width of the *iretire* bus
@@ -313,7 +313,7 @@ Smstrc*/Ssstrc* is intended to leverage the existing E-trace and N-trace extensi
 | trTeControl.trTeEmpty | `mstrcctl`.EMPTY |
 | trTeControl.trTeInstMode | 6 | This indicates "Optimized Instruction Trace," the only ratified option.
 | trTeControl.trTeContext | `mstrcctl`.CEN |
-| trTeControl.trTeDisSelfHosted | 0 |
+| trTeControl.trTeDisSelfHosted | 0 | An external debugger may set this bit to claim trace for itself, which will hide the presence of self-hosted trace from in-target software.
 | trTeControl.trTeInstTrigEnable | `mstrcctl`.ITEN |
 | trTeControl.trTeInstStallOrOverflow | `mstrcctl`.STOF |
 | trTeControl.trTeInstStallEna | `mstrcctl`.STEN |
@@ -332,7 +332,7 @@ Smstrc*/Ssstrc* is intended to leverage the existing E-trace and N-trace extensi
 | trTeInstFeatures.trTeInstEnImplicitReturn| `mstrcctl`.EIR |
 | trTeInstFeatures.trTeInstEnBranchPrediction| `mstrcctl`.EBP |
 | trTeInstFeatures.trTeInstEnJumpTargetCache| `mstrcctl`.ETC |
-| trTeInstFeatures.trTeInstImplicitReturnMode| 3 | See section 3.2.5 of the Efficient Trace for RISC-V Specification v2.0.
+| trTeInstFeatures.trTeInstImplicitReturnMode| 3 | Implicit return mode must have guaranteed correctness.  If implicit return mode is not supported then `mstrcctl`.EIR must to hardwired to 0.
 | trTeInstFeatures.trTeInstEnRepeatedHistory| `mstrcctl`.ERH |
 | trTeInstFeatures.trTeInstEnAllJumps| `mstrcctl`.EAJ |
 | trTeInstFeatures.trTeInstExtendAddrMSB| `mstrcctl`.EAM |

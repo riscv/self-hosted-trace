@@ -234,11 +234,9 @@ indicates that there is no branch predictor implemented.
 |_cache_size_p_ | Implementation-defined |  Number of entries in the jump target cache is
 2^*cache_size_p*^. Minimum number of entries is 2, so a value of 0.
 indicates that there is no jump target cache implemented.
-|_call_counter_size_p_ | 0 |  Number of bits in the nested call counter is
+|_call_counter_size_p_ | Implementation-defined |  Number of bits in the nested call counter is
 2^*call_counter_size_p*^. Minimum number of entries is 2, so a value of
-0 indicates that there is no implicit return call counter implemented.  Because the call
-counter method can result in the decoder following a return to the wrong target, this
-parameter is set to 0 for self-hosted trace.
+0 indicates that there is no implicit return call counter implemented.
 |_ctype_width_p_ | 2 (precise) |  Width of the *ctype* bus.
 |_context_width_p_ | 64 bits |  Width of *context* bus.
 |_time_width_p_ | Implementation-defined |  Width of *time* bus

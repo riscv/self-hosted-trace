@@ -174,7 +174,9 @@ By including the lower timestamp bits in the trace encapsulation, each trace pac
 
 For Smstrcn1p0/Ssstrcn1p0, timestamping follows the method described in section 8.5 of RISC-V N-Trace (Nexus-based Trace) v1.0 Specification.  As described for E-trace above, all N-trace packets can be associated with a precise timestamp value.
 
-WARNING: _We should have a timestamp width recommendation here._
+Some implementations may opt to include only a subset of the `time` CSR value when the full trace timestamp is reported, to reduce both trace packet size and the hardware required to support it.  It is recommended that implementations include enough lower bits of `time` to ensure the timer does not wrap (i.e., repeat the same time value) for at least 24 hours.
+
+NOTE: _While instruction traces generally capture fractions of a second of software execution, the duration of trace enabling may be much longer.  Consider a scenario where trace is written to a circular buffer, such that the buffer may wrap multiple times and only the last buffer-size bytes are collected and processed.  In such usages software tools cannot reliably detect if the full trace timestamp wrapped while the trace was running, or how many times.  The recommended timestamp duration above is intended to ensure that the full trace timestamp width is sufficient to support the vast majority of even circular-buffer usages._
 
 For a packet that reports the results of multiple control transfer instructions, the timestamp value is associated with the retirement of the last control transfer operation represented by the packet.
 

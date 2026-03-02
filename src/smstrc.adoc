@@ -201,8 +201,6 @@ _`__x__context` was chosen as the source of context because it allows capturing 
 _Neither `scontext` nor `hcontext` are populated by standard kernels, so a trace driver will need to update them on context switch._
 ====
 
-WARNING: _If trace will be separated per-thread then do we expect context reporting to be enabled even when tracing a single process?  If so, should it just be enabled by default?_
-
 WARNING: _The Linux/KVM pid_max for 64-bit systems is 22, so arguably we could limit the __x__context width reported to 22 bits each._
 
 [[trcencap]]

@@ -36,7 +36,7 @@ supervisor-level CSR descriptions.
 ====
 
 [[sstatus]]
-==== Supervisor Status (`sstatus`) Register 
+==== Supervisor Status (`sstatus`) Register
 
 The `sstatus` register is an SXLEN-bit read/write register formatted as
 shown in <<sstatusreg-rv32>> when SXLEN=32
@@ -297,7 +297,7 @@ Additionally, the implementation of an SSE protocol can be considered as an
 optional measure to aid in the recovery from such critical errors.
 ====
 
-==== Supervisor Trap Vector Base Address (`stvec`)  Register 
+==== Supervisor Trap Vector Base Address (`stvec`)  Register
 
 The `stvec` register is an SXLEN-bit read/write register that holds trap
 vector configuration, consisting of a vector base address (BASE) and a
@@ -319,7 +319,7 @@ field.
 |Value |Name |Description
 |0 +
 1 +
-&#8805;2 
+&#8805;2
 |Direct +
 Vectored
 |All exceptions set `pc` to BASE. +
@@ -338,7 +338,7 @@ supervisor-mode timer interrupt (see <<scauses>>)
 causes the `pc` to be set to BASE+`0x14`. Setting MODE=Vectored may
 impose a stricter alignment constraint on BASE.
 
-==== Supervisor Interrupt (`sip` and `sie`) Registers 
+==== Supervisor Interrupt (`sip` and `sie`) Registers
 
 The `sip` register is an SXLEN-bit read/write register containing
 information on pending interrupts, while `sie` is the corresponding
@@ -408,6 +408,13 @@ interrupt-enable bits for supervisor-level software interrupts. If
 implemented, SSIP is writable in `sip` and may also be set to 1 by a
 platform-specific interrupt controller.
 
+[NOTE]
+====
+Interprocessor interrupts are sent to other harts by
+implementation-specific means, which will ultimately cause the SSIP bit
+to be set in the recipient hart’s `sip` register.
+====
+
 If the Sscofpmf extension is implemented, bits `sip`.LCOFIP and `sie`.LCOFIE
 are the interrupt-pending and interrupt-enable bits for local counter-overflow
 interrupts.
@@ -417,18 +424,21 @@ counter-overflow overflow interrupt request resulting from any of the
 If the Sscofpmf extension is not implemented, `sip`.LCOFIP and `sie`.LCOFIE are
 read-only zeros.
 
-[NOTE]
-====
-Interprocessor interrupts are sent to other harts by
-implementation-specific means, which will ultimately cause the SSIP bit
-to be set in the recipient hart’s `sip` register.
-====
+If the Ssamb extension is implemented, bits `sip`.LAMBIP and `sie`.LAMBIE
+are the interrupt-pending and interrupt-enable bits for local asynchronous
+memory buffer interrupts.
+LAMBIP is read-write in `sip` and reflects the occurrence of a local
+asynchronous memory buffer interrupt request resulting from raising either a
+buffer management interrupt or a translation fault.
+If the Ssamb extension is not implemented, `sip`.LAMBIP and `sie`.LAMBIE are
+read-only zeros.
 
-Each standard interrupt type (SEI, STI, SSI, or LCOFI) may not be implemented,
-in which case the corresponding interrupt-pending and interrupt-enable
-bits are read-only zeros. All bits in `sip` and `sie` are *WARL* fields. The
-implemented interrupts may be found by writing one to every bit location
-in `sie`, then reading back to see which bit positions hold a one.
+Each standard interrupt type (SEI, STI, SSI, LCOFI, or LAMBI) may not be
+implemented, in which case the corresponding interrupt-pending and
+interrupt-enable bits are read-only zeros. All bits in `sip` and `sie` are
+*WARL* fields. The implemented interrupts may be found by writing one to
+every bit location in `sie`, then reading back to see which bit positions
+hold a one.
 
 [NOTE]
 ====
@@ -445,7 +455,8 @@ M-mode to S-mode, they are shown as 0 in
 ====
 
 Multiple simultaneous interrupts destined for supervisor mode are
-handled in the following decreasing priority order: SEI, SSI, STI, LCOFI.
+handled in the following decreasing priority order: SEI, SSI, STI, LCOFI,
+LAMBI.
 
 ==== Supervisor Timers and Performance Counters
 
@@ -457,7 +468,7 @@ the counter values.
 The implementation must provide a facility for scheduling timer
 interrupts in terms of the real-time counter, `time`.
 
-==== Counter-Enable (`scounteren`) Register 
+==== Counter-Enable (`scounteren`) Register
 
 .Counter-enable (`scounteren`) register
 include::images/bytefield/scounteren.edn[]
@@ -485,7 +496,7 @@ access a counter if the corresponding bits in `scounteren` and
 `mcounteren` are both set.
 ====
 
-==== Supervisor Scratch (`sscratch`) Register 
+==== Supervisor Scratch (`sscratch`) Register
 
 The `sscratch` CSR is an SXLEN-bit read/write register, dedicated
 for use by the supervisor. Typically, `sscratch` is used to hold a
@@ -523,7 +534,7 @@ though it may be explicitly written by software.
 include::images/bytefield/epcreg.edn[]
 
 [[scause]]
-==== Supervisor Cause (`scause`) Register 
+==== Supervisor Cause (`scause`) Register
 
 The `scause` CSR is an SXLEN-bit read-write register formatted as
 shown in <<scausereg>>. When a trap is taken into
@@ -577,7 +588,7 @@ Supervisor external interrupt +
 _Reserved_ +
 Counter-overflow interrupt +
 _Reserved_ +
-_Designated for platform use_ 
+_Designated for platform use_
 
 |0 +
 0 +
@@ -644,7 +655,7 @@ _Reserved_ +
 _Designated for custom use_ +
 _Reserved_ +
 _Designated for custom use_ +
-_Reserved_ 
+_Reserved_
 |===
 
 ==== Supervisor Trap Value (`stval`) Register
@@ -712,7 +723,7 @@ values less than latexmath:[$2^N$], where latexmath:[$N$] is the smaller
 of SXLEN and ILEN.
 
 [[sec:senvcfg]]
-==== Supervisor Environment Configuration (`senvcfg`) Register 
+==== Supervisor Environment Configuration (`senvcfg`) Register
 
 The `senvcfg` CSR is an SXLEN-bit read/write register, formatted as
 shown in <<senvcfg>>, that controls certain
@@ -1899,7 +1910,7 @@ __vpn__[__i__][__pte__.__napot_bits__-1:0]. If the encoding in _pte_ is reserved
 <<ptenapot>>, then a page-fault exception must be raised.
 * Implicit reads of NAPOT page table entries may create
 address-translation cache entries mapping
-_a_ + _j_×PTESIZE to a copy of _pte_ in which _pte_._ppn_[_i_][_pte_.__napot_bits__-1:0] 
+_a_ + _j_×PTESIZE to a copy of _pte_ in which _pte_._ppn_[_i_][_pte_.__napot_bits__-1:0]
 is replaced by _vpn[i][pte.napot_bits_-1:0], for any or all _j_ such that
 __j__ >> __napot_bits__ = __vpn__[__i__] >> __napot_bits__, all for the address space identified in _satp_ as loaded by step 1.
 
@@ -1995,7 +2006,7 @@ __
 1 +
 2 +
 ...
-|=== 
+|===
 
 In such a case, an implementation may or may not support all options.
 The discoverability mechanism for this extension would be extended to

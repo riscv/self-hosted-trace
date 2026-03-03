@@ -1,4 +1,6 @@
-== Self-hosted Trace ISA Extension (Smstrce1p0/Ssstrce1p0 and Smstrcn1p0/Ssstrcn1p0)
+
+[[smstrc]]
+== "Smstrce1p0/Smstrcn1p0" Self-hosted Trace ISA Extension, Version 1.0
 
 Self-hosted trace describes the use of hardware trace capabilities by software running on the target.  The Smstrc* extensions provide an ISA interface to the RISC-V trace encoder.  'Sm' and 'Ss' imply M-mode and S-mode extensions, respectively, while 'strc' refers to self-hosted trace.  The following 'e' vs 'n' selects the encoding standard; 'e' implies the standard defined in the Efficient Trace for RISC-V v2.0 specification, while 'n' implies the standard defined in the RISC-V N-trace v1.0 specification.  Finally, '1p0' implies self-hosted trace version 1.0 for each encoding scheme.
 
@@ -292,14 +294,13 @@ The TMB is configured using `sstrcambcs`, `sstrcambaddr`, `menvcfg`.STRCS, and `
 
 === External Debug Interaction
 
-WARNING: _This goes in Table 9 of the RISC-V Trace Control Interface Specification._
+WARNING: _This goes in Table 9 of the RISC-V Trace Control Interface Specification, which is not part of this repo._
 
 Bit 10 of trTeControl is the trTeDisSelfHosted bit.  When set, the hart behaves as though Smstrc*/Ssstrc* is not implemented.
 
 NOTE: _The trTeDisSelfHosted bit provides a means for an external debugger to reserve the TE for itself, by hiding the availability of self-hosted trace from software running on the hart.  If set from boot, it is reasonable to expect that software will never attempt to use self-hosted trace.  Otherwise the debugger may need to handle exceptions that result from software attempts to access self-hosted trace CSRs.  The debugger could use an etrigger to intercept the exceptions, at which point it could emulate the access or clear trTeDisSelfHosted and reexecute the write, among other options._
 
 [[strctci]]
-[appendix]
 === Interoperability with Trace Control Interface
 
 Smstrc*/Ssstrc* is intended to leverage the existing E-trace and N-trace extensions, such that it is straight-forward for a single encoder to support both self-hosted tracing and host-target tracing.  For an E-trace or N-trace implementation that supports the Trace Encoder Control Interface (TECI) described in Chapter 6 of the RISC-V Trace Control Interface Specification, many of the fields in `mstrcctl` are analogous to fields in trTeControl, trTeInstFeatures, and others.  Other fields in TECI will hold fixed values when self-hosted trace is in use.  The table below details how the TECI is configured for self-hosted trace.
@@ -377,7 +378,6 @@ Smstrc*/Ssstrc* is intended to leverage the existing E-trace and N-trace extensi
 
 NOTE: _The TECI is often implemented as an MMIO interface.  Implementations should ensure that only sufficently privileged entities, like an authenticated debugger, can access the TECI.  It should not be possible for the TECI for a given hart to be observed or written by a peer hart._
 
-[appendix]
 === Configuration Scenarios
 
 This section describes likely self-hosted trace configurations for select scenarios in a typical "rich OS" environment.  Note that this list is far from comprehensive, and there are scenarios where many more combinations of the bits below may be appropriate.

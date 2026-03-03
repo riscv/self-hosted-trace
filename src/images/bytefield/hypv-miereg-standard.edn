@@ -8,7 +8,7 @@
 (def boxes-per-row 32)
 
 (draw-box "15" {:borders {}})
-(draw-box "14" {:borders {}})
+(draw-box "14" {:span 3 :borders {}})
 (draw-box "13" {:span 3 :borders {}})
 (draw-box "12" {:span 2 :borders {}})
 (draw-box "11" {:span 2 :borders {}})
@@ -24,7 +24,8 @@
 (draw-box "1" {:span 2 :borders {}})
 (draw-box "0" {:span 2 :borders {}})
 
-(draw-box "0" {:span 2})
+(draw-box "0" {:span 1})
+(draw-box "LAMBIE" {:span 3})
 (draw-box "LCOFIE" {:span 3})
 (draw-box "SGEIE" {:span 2})
 (draw-box "MEIE" {:span 2})

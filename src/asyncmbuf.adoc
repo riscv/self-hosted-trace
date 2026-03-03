@@ -23,7 +23,7 @@ _There are also middle-ground options.  Some extensions that leverage Ssamb may 
 [[sambcs]]
 ==== Supervisor Asynchronous Memory Buffer Configuration and Status Register (`sambcs`)
 
-The `sambcs` register is a 64-bit read-write register that provides configuration and status fields for the asynchronous memory buffer.  
+The `sambcs` register is a 64-bit read-write register that provides configuration and status fields for the asynchronous memory buffer.
 
 Optionally, if RV32 is supported, bits 63:32 of `sambcs` can be accessed via the `sambcsh` CSR.
 
@@ -69,7 +69,7 @@ NOTE: _EMPTY should factor in any empty indication from the associated data sour
 
 The WRAP bit indicates that the buffer has wrapped at least once, and hence the data above the write pointer is valid.  If SOF (Stop-on-full) is set, any asynchronous data received after the buffer fills (WRAP=1) is dropped.  In this case (SOF=1 and WRAP=1), `sambaddr` will hold the address of the base of the buffer.
 
-The TRV bit is a read-only indication to software that the hardware has successfully translated the buffer current page, and optionally one or more following pages.  See <<ambendis>> for more details. 
+The TRV bit is a read-only indication to software that the hardware has successfully translated the buffer current page, and optionally one or more following pages.  See <<ambendis>> for more details.
 
 Software should only write to `sambcs` while any associated asynchronous data sources are disabled and `sambcs`.EMPTY=1, to avoid race conditions with hardware updates while AMB writes are in flight.  AMB behavior is UNSPECIFIED otherwise.
 
@@ -89,13 +89,11 @@ Software should only write to `sambaddr` while AMB is disabled and empty (`sambc
 
 ==== Interrupt Registers
 
-WARNING: _This section gets integrated into 3.1.9 and others_
-
 The local asynchronous memory buffer interrupt (LAMBI) bit in `mip`, `mie`, and `mideleg` is writable.  For implementations that support S-mode, the LAMBI bit in `sip` and `sie` is writable.  For implementations that support the H extension, the LAMBI bit in `vsip` and `vsie` is writable, and, when `mideleg`.LAMBI=1, the LAMBI bit in `hideleg` is writable.
 
 For implementations that support Smaia, the LAMBI bit in `mvip` and `mvien` is writable.  For implementations that support Smaia/Ssaia and the H extension, the LAMBI bit in `hvip` and `hvien` is writable.
 
-LAMBI is bit 14 in all registers reference above.  The priority of LAMBIs lies immediately below that of local counter overflow interrupts (LCOFIs).
+WARNING: _There are corresponding changes needed in the riscv-interrupts (AIA) spec, which is not part of this repo.  Why aren't the ISA portions of AIA integrated into the priv ISA spec?_
 
 [[ambendis]]
 === Enabling and Disabling
@@ -110,7 +108,7 @@ Failure to follow the guidance above when enabling or disabling asynchronous dat
 
 === Memory Semantics
 
-Like other stores, the ordering and cache semantics of hardware AMB writes are dictated by PMAs and/or page-based memory types (Svpbmt).  However, hardware writes of asynchronous data are not ordered with respect to explicit memory operations, including FENCE instructions.  Further, AMB writes are not ordered with respect to other AMB writes, or other implicit writes.  To effect an asynchronous data fence software should follow the AMB disable steps described in <<ambendis>>. 
+Like other stores, the ordering and cache semantics of hardware AMB writes are dictated by PMAs and/or page-based memory types (Svpbmt).  However, hardware writes of asynchronous data are not ordered with respect to explicit memory operations, including FENCE instructions.  Further, AMB writes are not ordered with respect to other AMB writes, or other implicit writes.  To effect an asynchronous data fence software should follow the AMB disable steps described in <<ambendis>>.
 
 [NOTE]
 ====
@@ -149,7 +147,7 @@ WARNING: _Adding yet another new local interrupt for AMB guest-page faults was c
 [[ambtlb]]
 ==== Caching AMB Address Translations
 
-Implementations should cache AMB address translations in order to improve performance and avoid asynchronous data loss.  Cached AMB page translations can be flushed by SFENCE and HFENCE instructions, globally or per ASID/VMID, just as other translations are.  See <<sfence.vma>> and <<hfence.vma>>.  
+Implementations should cache AMB address translations in order to improve performance and avoid asynchronous data loss.  Cached AMB page translations can be flushed by SFENCE and HFENCE instructions, globally or per ASID/VMID, just as other translations are.  See <<sfence.vma>> and <<hfence.vma>>.
 
 NOTE: _Depending on the AMB size and the asynchronous data rate, AMB writes can touch many pages in a short amount of time.  However, AMB uses page translations efficiently, writing exclusively to a single page until it is full, then moving to the next and writing exclusively to it.  Rather than allowing AMB writes to displace explicit memory access translations from the primary TLB, it may be more efficient to store cached AMB translations in a very small dedicated AMB TLB.  Two entries (current page and next page) will be sufficient for most implementations, though more may be warranted if the implementation pre-translates more than one page ahead._
 
@@ -208,4 +206,3 @@ For each `sambcs` register implemented:
 4. Re-enable any data sources disabled in step 1, following the guidance in <<ambendis>>.
 ** After this step asynchronous data generation resumes, which could result in a new LAMBI being pended.  Because `__x__status`.__x__IE=0 during handler execution, any new LAMBI will remain pending until the handler completes.
 ** The handler could opt to perform step 4 for each AMB instance after steps 1-3 are completed for all instances, if data generation during handler execution is not desired.
-

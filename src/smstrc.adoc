@@ -1,4 +1,6 @@
-== Self-hosted Trace ISA Extension (Smstrce1p0/Ssstrce1p0 and Smstrcn1p0/Ssstrcn1p0)
+
+[[smstrc]]
+== "Smstrce1p0/Smstrcn1p0" Self-hosted Trace ISA Extension, Version 1.0
 
 Self-hosted trace describes the use of hardware trace capabilities by software running on the target.  The Smstrc* extensions provide an ISA interface to the RISC-V trace encoder.  'Sm' and 'Ss' imply M-mode and S-mode extensions, respectively, while 'strc' refers to self-hosted trace.  The following 'e' vs 'n' selects the encoding standard; 'e' implies the standard defined in the Efficient Trace for RISC-V v2.0 specification, while 'n' implies the standard defined in the RISC-V N-trace v1.0 specification.  Finally, '1p0' implies self-hosted trace version 1.0 for each encoding scheme.
 
@@ -201,8 +203,6 @@ _`__x__context` was chosen as the source of context because it allows capturing 
 _Neither `scontext` nor `hcontext` are populated by standard kernels, so a trace driver will need to update them on context switch._
 ====
 
-WARNING: _If trace will be separated per-thread then do we expect context reporting to be enabled even when tracing a single process?  If so, should it just be enabled by default?_
-
 WARNING: _The Linux/KVM pid_max for 64-bit systems is 22, so arguably we could limit the __x__context width reported to 22 bits each._
 
 [[trcencap]]
@@ -277,13 +277,11 @@ inferable jumps
 
 ===== Required Support Packet
 
-There are 4 parameters whose values may vary across Smstrce*/Ssstrce* implementations, and whose values must be known by the decoder: _time_width_p_, _cache_size_p_, _brpred_size_p_, and _f0s_width_p.  In order to provide these values in a standard manner, E-trace extension _TBD_ is required by Smstrce*/Ssstrce*.  This extension requires support for a standard Support packet (format 3 subformat 3, see chapter 7.5 of the Efficient Trace for RISC-V v2.0 Specification), which reports parameter values.
+There are 4 parameters whose values may vary across Smstrce*/Ssstrce* implementations, and whose values must be known by the decoder: _time_width_p_, _cache_size_p_, _brpred_size_p_, and _f0s_width_p_.  In order to provide these values in a standard manner, the E-trace Standard Support Packet fast-track extension is required by Smstrce*/Ssstrce*.  This extension requires support for a standard Support packet (format 3 subformat 3, see chapter 7.5 of the Efficient Trace for RISC-V v2.0 Specification), which reports parameter values.
 
 NOTE: _Support packets are not provided with every Sync packet, but are provided on trace start and trace end.  For a circular buffer usage, the trace start packet may be overwritten but the trace end packet should always be available.  The decoder will need to read the end of the buffer first, to get parameter values from the Support packet there, before searching for the first Sync packet from which to begin trace processing._
 
 NOTE: _Providing parameters in the trace ensures that a decoder can decode a trace that was live-migrated across implementations with differing parameter values._
-
-WARNING: _Iain will provide the E-trace extension that specifies the Support packet format._
 
 [[strcmem]]
 === Self-hosted Trace Memory Buffer
@@ -292,16 +290,7 @@ The self-hosted trace memory buffer (TMB) is an instance of the Asynchronous Mem
 
 The TMB is configured using `sstrcambcs`, `sstrcambaddr`, `menvcfg`.STRCS, and `henvcfg`.STRCV.  See <<strccsrs>> and <<ssamb>> for details.
 
-=== External Debug Interaction
-
-WARNING: _This goes in Table 9 of the RISC-V Trace Control Interface Specification._
-
-Bit 10 of trTeControl is the trTeDisSelfHosted bit.  When set, the hart behaves as though Smstrc*/Ssstrc* is not implemented.
-
-NOTE: _The trTeDisSelfHosted bit provides a means for an external debugger to reserve the TE for itself, by hiding the availability of self-hosted trace from software running on the hart.  If set from boot, it is reasonable to expect that software will never attempt to use self-hosted trace.  Otherwise the debugger may need to handle exceptions that result from software attempts to access self-hosted trace CSRs.  The debugger could use an etrigger to intercept the exceptions, at which point it could emulate the access or clear trTeDisSelfHosted and reexecute the write, among other options._
-
 [[strctci]]
-[appendix]
 === Interoperability with Trace Control Interface
 
 Smstrc*/Ssstrc* is intended to leverage the existing E-trace and N-trace extensions, such that it is straight-forward for a single encoder to support both self-hosted tracing and host-target tracing.  For an E-trace or N-trace implementation that supports the Trace Encoder Control Interface (TECI) described in Chapter 6 of the RISC-V Trace Control Interface Specification, many of the fields in `mstrcctl` are analogous to fields in trTeControl, trTeInstFeatures, and others.  Other fields in TECI will hold fixed values when self-hosted trace is in use.  The table below details how the TECI is configured for self-hosted trace.
@@ -379,7 +368,6 @@ Smstrc*/Ssstrc* is intended to leverage the existing E-trace and N-trace extensi
 
 NOTE: _The TECI is often implemented as an MMIO interface.  Implementations should ensure that only sufficently privileged entities, like an authenticated debugger, can access the TECI.  It should not be possible for the TECI for a given hart to be observed or written by a peer hart._
 
-[appendix]
 === Configuration Scenarios
 
 This section describes likely self-hosted trace configurations for select scenarios in a typical "rich OS" environment.  Note that this list is far from comprehensive, and there are scenarios where many more combinations of the bits below may be appropriate.

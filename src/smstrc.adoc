@@ -379,12 +379,12 @@ This section describes likely self-hosted trace configurations for select scenar
 | `mstateen0`.STRC | 1 | 1 | 1 | 1 | 1 | 1
 | `hstateen0`.STRC | NA | NA | NA | 1 | 0 | 0
 | `menvcfg`.STRCS | 1 | 1 | 1 | 1 | 1 | 1
-| `menvcfg`.STRCV | 0 | 0 | 0 | 1 | 1 | 0
+| `henvcfg`.STRCV | 0 | 0 | 0 | 1 | 1 | 0
 | `mideleg`.LAMBI | 1 | 1 | 1 | 1 | 1 | 1
 | `hideleg`.LAMBI | NA | NA | NA | 1 | 1 | 0
 | `mstrcctl`.M | 0 | 0 | 0 | 0 | 0 | 0
 | `mstrcctl`.S | 0 | 1 | 1 | 0 | 0 | 1
-| `mstrcctl`.U | 0 | 0 | 1 | 0 | 0 | 1
+| `mstrcctl`.U | 1 | 0 | 1 | 0 | 0 | 1
 | `vsstrcctl`.S | NA | NA | NA | 1 | 1 | 1
 | `vsstrcctl`.U | NA | NA | NA | 1 | 1 | 1
 |===

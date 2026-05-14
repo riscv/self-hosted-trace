@@ -83,7 +83,7 @@ The address actually comprises the buffer base and the write pointer offset.  Be
 
 Some instantiations of AMB may support only buffer writes that are aligned to a fixed size.  In such cases the least significant bits of `sambaddr`, those that offset into the aligned range, may be hardcoded to 0.
 
-`sambaddr` need not be capable of holding an invalid address.
+`sambaddr` need not be capable of holding an invalid address, and because this address is used only for implicit writes no pointer masking is applied.
 
 Software should only write to `sambaddr` while AMB is disabled and empty (`sambcs`.EN=0 and `sambcs`.EMPTY=1).  AMB write behavior is UNSPECIFIED otherwise.
 
@@ -138,7 +138,7 @@ The process of translating AMB write addresses can result in translation faults.
 
 NOTE: _Unlike explicit stores or other implicit stores, asynchronous memory buffer writes do not raise "Store/AMO Page Fault" exceptions as a result of translation faults.  By instead pending a LAMBI with TF=1, risks of destructive nested page faults, e.g., as a result of a synchronous page fault followed by an asynchronous page fault, are avoided.  Further, unlike page fault exceptions, a LAMBI pended for an AMB translation fault can remain pending if it cannot be taken in the current privilege mode._
 
-A page fault incurred during the second stage, or G-stage, translation raises a Load or Store/AMO guest-page fault, just as explicit accesses and other implicit accesses do.
+A page fault incurred during the second stage, or G-stage, translation raises a Load or Store/AMO guest-page fault, just as explicit accesses and other implicit accesses do.  The faulting virtual address can be found in `htval`.
 
 NOTE: _AMB guest-page faults do not raise LAMBIs since the two must be handled in different privilege modes, much the way non-AMB page fault exceptions and guest-page fault exceptions are._
 

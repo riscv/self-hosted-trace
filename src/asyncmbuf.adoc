@@ -83,7 +83,7 @@ The address actually comprises the buffer base and the write pointer offset.  Be
 
 Some instantiations of AMB may support only buffer writes that are aligned to a fixed size.  In such cases the least significant bits of `sambaddr`, those that offset into the aligned range, may be hardcoded to 0.
 
-`sambaddr` need not be capable of holding an invalid address, and because this address is used for implicit writes no pointer masking is applied.
+`sambaddr` need not be capable of holding an invalid address, and because this address is used only for implicit writes no pointer masking is applied.
 
 Software should only write to `sambaddr` while AMB is disabled and empty (`sambcs`.EN=0 and `sambcs`.EMPTY=1).  AMB write behavior is UNSPECIFIED otherwise.
 

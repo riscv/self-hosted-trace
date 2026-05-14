@@ -138,7 +138,7 @@ The process of translating AMB write addresses can result in translation faults.
 
 NOTE: _Unlike explicit stores or other implicit stores, asynchronous memory buffer writes do not raise "Store/AMO Page Fault" exceptions as a result of translation faults.  By instead pending a LAMBI with TF=1, risks of destructive nested page faults, e.g., as a result of a synchronous page fault followed by an asynchronous page fault, are avoided.  Further, unlike page fault exceptions, a LAMBI pended for an AMB translation fault can remain pending if it cannot be taken in the current privilege mode._
 
-A page fault incurred during the second stage, or G-stage, translation raises a Load or Store/AMO guest-page fault, just as explicit accesses and other implicit accesses do.
+A page fault incurred during the second stage, or G-stage, translation raises a Load or Store/AMO guest-page fault, just as explicit accesses and other implicit accesses do.  The faulting virtual address can be found in `htval`.
 
 NOTE: _AMB guest-page faults do not raise LAMBIs since the two must be handled in different privilege modes, much the way non-AMB page fault exceptions and guest-page fault exceptions are._
 

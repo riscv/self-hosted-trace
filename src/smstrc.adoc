@@ -118,6 +118,8 @@ The `scontext` CSR, as specified by the Sdtrig extension, is required by Smstrc*
 
 The `hcontext` CSR, as specified by the Sdtrig extension, is required by Smstrc*/Ssstrc*.  It must hold at least 22 bits of context.  See <<trcontext>> for usage information.
 
+NOTE: _The Sdtrig extension specifies that `mcontext` is required when `hcontext` is implemented._
+
 WARNING: _Should this wider `hcontext` (debug spec recommends only up to 14 bits) be a more general recommendation/requirement?_
 
 ==== Hypervisor Environment Configuration Register (`henvcfg`)

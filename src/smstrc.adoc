@@ -174,7 +174,7 @@ The Smstrc*/Ssstrc* extensions impose the following requirements on the implemen
 
 Trace timestamps must be based upon the value of the `time` CSR, as though read from within the privilege mode selected by `menvcfg`.STRCS and `henvcfg`.STRCV.  This implies that a trace timestamp value reported while the hart is in VS-mode should include the `htimedelta` only if `menvcfg`.STRCS=1 and `henvcfg`.STRCV=1.
 
-For Smstrce1p0/Ssstrce1p0, when `mtrcctl`.TSEN=1, bits _time_width_p_-1:16 of the timestamp value are reported in format 3 packets, whlie bits 15:0 of the timestamp value are reported in the packet encapsulation.  This implies that the encapsulation header.extend bit is set to 1, and the timestamp width in bytes, T, is 2.  See section 2.1.3 of the Unformatted Trace & Diagnostic Data Packet Encapsulation for RISC-V v1.0 Specification for details on encapsulation timestamping.
+For Smstrce1p0/Ssstrce1p0, when `mtrcctl`.TSEN=1, bits _time_width_p_-1:16 of the timestamp value are reported in format 3 packets, while bits 15:0 of the timestamp value are reported in the packet encapsulation.  This implies that the encapsulation header.extend bit is set to 1, and the timestamp width in bytes, T, is 2.  See section 2.1.3 of the Unformatted Trace & Diagnostic Data Packet Encapsulation for RISC-V v1.0 Specification for details on encapsulation timestamping.
 
 By including the lower timestamp bits in the trace encapsulation, each trace packet can be associated with a precise timestamp value.
 
@@ -271,7 +271,7 @@ same as _DXLEN_
 |_privilege_width_p_ | 3 |  Width of *privilege* bus
 |_retires_p_ | Implementation-defined |  Maximum number of instructions that can be retired per
 block
-|_return_stack_size_p_ | <=6 |  Number of entries in the return address stack
+|_return_stack_size_p_ | ≤6 |  Number of entries in the return address stack
 is 2^*return_stack_size_p*^. Minimum number of entries is 2, so a value
 of 0 indicates that there is no implicit return stack implemented.
 |_sijump_p_ | Implementation-defined | *sijump* is used to identify sequentially

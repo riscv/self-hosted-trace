@@ -86,7 +86,7 @@ Once the count of events selected by SMOD reaches the threshold specified by SMA
 | M | Enable tracing in M-mode.
 |===
 
-The EN, EMPTY, IT, CEN, STOF, SMOD, SMAX, TSEN, U, S, and M fields are required, while others are optional.  Unimplemented fields must be hardcoded to 0.
+The EN, EMPTY, IT, CEN, STOF, SMOD, SMAX, TSEN, U, S, and M fields are required, including all values for multi-bit fields, while others are optional.  WARL-discovery can be used to discover support for optional fields.  Unimplemented fields must be hardcoded to 0.
 
 NOTE: _Most of the fields listed above correspond to equivalent fields in the `trTeControl` and `trTeInstFeatures` registers from the RISC-V Trace Control Interface Specification.  See <<strctci>> for details on self-hosted trace ramifications on the Trace Control Interface._
 
@@ -118,6 +118,8 @@ The `scontext` CSR, as specified by the Sdtrig extension, is required by Smstrc*
 
 The `hcontext` CSR, as specified by the Sdtrig extension, is required by Smstrc*/Ssstrc*.  It must hold at least 22 bits of context.  See <<trcontext>> for usage information.
 
+NOTE: _The Sdtrig extension specifies that `mcontext` is required when `hcontext` is implemented._
+
 WARNING: _Should this wider `hcontext` (debug spec recommends only up to 14 bits) be a more general recommendation/requirement?_
 
 ==== Hypervisor Environment Configuration Register (`henvcfg`)
@@ -147,11 +149,13 @@ If the H extension is implemented, the `vsstrcctl` register is a 64-bit WARL reg
 [[strcsten]]
 === State Enable Access Control
 
-When Smstateen is implemented, the `mstateen0`.STRC bit controls access to STRC register state from privilege modes less privileged than M-mode.  When `mstateen0`.STRC=1, supervisor level accesses to STRC register state behave as described in <<CSRs>> above.  When `mstateen0`.STRC=0 and the privilege mode is less privileged than M-mode, attempts to access `sstrc*` or `vsstrcctl` raise an illegal-instruction exception, and `henvcfg`.STRCV is read-only 0.  If `mstateen0`.STRC=0 and `mstateen0`[57]=0 and the privilege mode is less privileged than M-mode, attempts to access `scontext` or `hcontext` raise an illegal-instruction exception.
+When Smstateen is implemented, the `mstateen0`.STRC bit controls access to STRC register state from privilege modes less privileged than M-mode.  When `mstateen0`.STRC=1, supervisor level accesses to STRC register state behave as described in <<CSRs>> above.  When `mstateen0`.STRC=0 and the privilege mode is less privileged than M-mode, attempts to access `sstrc*` or `vsstrcctl` raise an illegal-instruction exception, and `henvcfg`.STRCV is read-only 0.
 
 If the H extension is implemented and `mstateen0`.STRC=1, the `hstateen0`.STRC bit controls access to supervisor STRC state (`sstrc*`) when V=1.  `hstateen0`.STRC is read-only 0 when `mstateen0`.STRC=0.
 
-When `mstateen0`.STRC=1 and `hstateen0`.STRC=1, VS-mode accesses to supervisor STRC state behave as described in <<CSRs>> above.  When `mstateen0`.STRC=1 and `hstateen0`.STRC=0, VS-mode accesses to supervisor STRC state raise a virtual-instruction exception and, if `mstateen0`[57]=1 and `hstateen0`[57]=0, VS-mode accesses to `scontext` raise a virtual-instruction exception.
+When `mstateen0`.STRC=1 and `hstateen0`.STRC=1, VS-mode accesses to supervisor STRC state behave as described in <<CSRs>> above.  When `mstateen0`.STRC=1 and `hstateen0`.STRC=0, VS-mode accesses to supervisor STRC state raise a virtual-instruction exception.
+
+Access to `scontext` and `hcontext` is governed not by `__x__stateen0`.STRC but by `__x__stateen0`[57].  Software should set `__x__stateen0`[57]=1 when `__x__stateen0`.STRC=1.
 
 NOTE: _See Sscsrind for how bit 60 in `mstateen0` and `hstateen0` can also restrict access to `sireg*`/`siselect` and `vsireg*`/`vsiselect` from privilege modes less privileged than M-mode._
 
@@ -170,7 +174,7 @@ The Smstrc*/Ssstrc* extensions impose the following requirements on the implemen
 
 Trace timestamps must be based upon the value of the `time` CSR, as though read from within the privilege mode selected by `menvcfg`.STRCS and `henvcfg`.STRCV.  This implies that a trace timestamp value reported while the hart is in VS-mode should include the `htimedelta` only if `menvcfg`.STRCS=1 and `henvcfg`.STRCV=1.
 
-For Smstrce1p0/Ssstrce1p0, when `mtrcctl`.TSEN=1, bits _time_width_p_-1:16 of the timestamp value are reported in format 3 packets, whlie bits 15:0 of the timestamp value are reported in the packet encapsulation.  This implies that the encapsulation header.extend bit is set to 1, and the timestamp width in bytes, T, is 2.  See section 2.1.3 of the Unformatted Trace & Diagnostic Data Packet Encapsulation for RISC-V v1.0 Specification for details on encapsulation timestamping.
+For Smstrce1p0/Ssstrce1p0, when `mtrcctl`.TSEN=1, bits _time_width_p_-1:16 of the timestamp value are reported in format 3 packets, while bits 15:0 of the timestamp value are reported in the packet encapsulation.  This implies that the encapsulation header.extend bit is set to 1, and the timestamp width in bytes, T, is 2.  See section 2.1.3 of the Unformatted Trace & Diagnostic Data Packet Encapsulation for RISC-V v1.0 Specification for details on encapsulation timestamping.
 
 By including the lower timestamp bits in the trace encapsulation, each trace packet can be associated with a precise timestamp value.
 
@@ -267,7 +271,7 @@ same as _DXLEN_
 |_privilege_width_p_ | 3 |  Width of *privilege* bus
 |_retires_p_ | Implementation-defined |  Maximum number of instructions that can be retired per
 block
-|_return_stack_size_p_ | <=6 |  Number of entries in the return address stack
+|_return_stack_size_p_ | ≤6 |  Number of entries in the return address stack
 is 2^*return_stack_size_p*^. Minimum number of entries is 2, so a value
 of 0 indicates that there is no implicit return stack implemented.
 |_sijump_p_ | Implementation-defined | *sijump* is used to identify sequentially

@@ -86,7 +86,7 @@ Once the count of events selected by SMOD reaches the threshold specified by SMA
 | M | Enable tracing in M-mode.
 |===
 
-The EN, EMPTY, IT, CEN, STOF, SMOD, SMAX, TSEN, U, S, and M fields are required, while others are optional.  Unimplemented fields must be hardcoded to 0.
+The EN, EMPTY, IT, CEN, STOF, SMOD, SMAX, TSEN, U, S, and M fields are required, including all values for multi-bit fields, while others are optional.  WARL-discovery can be used to discover support for optional fields.  Unimplemented fields must be hardcoded to 0.
 
 NOTE: _Most of the fields listed above correspond to equivalent fields in the `trTeControl` and `trTeInstFeatures` registers from the RISC-V Trace Control Interface Specification.  See <<strctci>> for details on self-hosted trace ramifications on the Trace Control Interface._
 

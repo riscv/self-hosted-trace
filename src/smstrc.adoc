@@ -149,11 +149,13 @@ If the H extension is implemented, the `vsstrcctl` register is a 64-bit WARL reg
 [[strcsten]]
 === State Enable Access Control
 
-When Smstateen is implemented, the `mstateen0`.STRC bit controls access to STRC register state from privilege modes less privileged than M-mode.  When `mstateen0`.STRC=1, supervisor level accesses to STRC register state behave as described in <<CSRs>> above.  When `mstateen0`.STRC=0 and the privilege mode is less privileged than M-mode, attempts to access `sstrc*` or `vsstrcctl` raise an illegal-instruction exception, and `henvcfg`.STRCV is read-only 0.  If `mstateen0`.STRC=0 and `mstateen0`[57]=0 and the privilege mode is less privileged than M-mode, attempts to access `scontext` or `hcontext` raise an illegal-instruction exception.
+When Smstateen is implemented, the `mstateen0`.STRC bit controls access to STRC register state from privilege modes less privileged than M-mode.  When `mstateen0`.STRC=1, supervisor level accesses to STRC register state behave as described in <<CSRs>> above.  When `mstateen0`.STRC=0 and the privilege mode is less privileged than M-mode, attempts to access `sstrc*` or `vsstrcctl` raise an illegal-instruction exception, and `henvcfg`.STRCV is read-only 0.
 
 If the H extension is implemented and `mstateen0`.STRC=1, the `hstateen0`.STRC bit controls access to supervisor STRC state (`sstrc*`) when V=1.  `hstateen0`.STRC is read-only 0 when `mstateen0`.STRC=0.
 
-When `mstateen0`.STRC=1 and `hstateen0`.STRC=1, VS-mode accesses to supervisor STRC state behave as described in <<CSRs>> above.  When `mstateen0`.STRC=1 and `hstateen0`.STRC=0, VS-mode accesses to supervisor STRC state raise a virtual-instruction exception and, if `mstateen0`[57]=1 and `hstateen0`[57]=0, VS-mode accesses to `scontext` raise a virtual-instruction exception.
+When `mstateen0`.STRC=1 and `hstateen0`.STRC=1, VS-mode accesses to supervisor STRC state behave as described in <<CSRs>> above.  When `mstateen0`.STRC=1 and `hstateen0`.STRC=0, VS-mode accesses to supervisor STRC state raise a virtual-instruction exception.
+
+Access to `scontext` and `hcontext` is governed not by `__x__stateen0`.STRC but by `__x__stateen0`[57].  Software should set `__x__stateen0`[57]=1 when `__x__stateen0`.STRC=1.
 
 NOTE: _See Sscsrind for how bit 60 in `mstateen0` and `hstateen0` can also restrict access to `sireg*`/`siselect` and `vsireg*`/`vsiselect` from privilege modes less privileged than M-mode._
 
